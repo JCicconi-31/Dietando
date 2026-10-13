@@ -32,6 +32,23 @@ export default function RootLayout({
         <link rel="manifest" href="/manifest.json" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function() {
+              try {
+                const savedTheme = localStorage.getItem('diet_theme');
+                if (savedTheme === 'dark') {
+                  document.documentElement.classList.add('dark');
+                } else if (savedTheme === 'light') {
+                  document.documentElement.classList.remove('dark');
+                } else {
+                  // Default to light if not explicitly set
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch(e) {}
+            })();`,
+          }}
+        />
       </head>
       <body className="min-h-full flex flex-col transition-colors duration-200">
         <PwaRegister />

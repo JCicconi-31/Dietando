@@ -1,108 +1,121 @@
 "use client";
 
-import React, { useState } from "react";
-import { X, UserPlus, Check, Users } from "lucide-react";
+import React from "react";
+import { X, LogOut, Trash2, User, ShieldCheck, RefreshCw } from "lucide-react";
+import { AuthUser } from "@/lib/client-auth";
 
 interface AccountModalProps {
   isOpen: boolean;
   onClose: () => void;
-  currentUser: string;
-  onSwitchUser: (userName: string) => void;
+  currentUser: AuthUser | null;
+  onLogout: () => void;
+  onDeleteAccount: () => void;
+  onResetPlan?: () => void;
+  hasActivePlan?: boolean;
 }
 
 export function AccountModal({
   isOpen,
   onClose,
   currentUser,
-  onSwitchUser,
+  onLogout,
+  onDeleteAccount,
+  onResetPlan,
+  hasActivePlan,
 }: AccountModalProps) {
-  const [newUserName, setNewUserName] = useState("");
-  const availableUsers = ["Utente Demo", "Jacopo", "Amico 1 (Marco)", "Amico 2 (Chiara)"];
-
-  if (!isOpen) return null;
-
-  const handleCreateUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserName.trim()) return;
-    onSwitchUser(newUserName.trim());
-    setNewUserName("");
-    onClose();
-  };
+  if (!isOpen || !currentUser) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-[#1a1a1e] rounded-3xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-800 shadow-2xl space-y-4">
+      <div className="bg-white dark:bg-[#1a1a1e] rounded-3xl max-w-md w-full p-6 border border-stone-200 dark:border-stone-800 shadow-2xl space-y-5">
         {/* Header Modale */}
-        <div className="flex items-center justify-between pb-2 border-b border-stone-100 dark:border-stone-850">
+        <div className="flex items-center justify-between pb-3 border-b border-stone-100 dark:border-stone-850">
           <div className="flex items-center gap-2 text-stone-900 dark:text-stone-100 font-bold text-base">
-            <Users size={20} className="text-[#F7931E]" />
-            Multi-Utente (Dati Isolati)
+            <ShieldCheck size={20} className="text-[#F7931E]" />
+            Account Personale
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200"
+            className="p-1 rounded-xl text-stone-400 hover:text-stone-700 dark:hover:text-stone-200 cursor-pointer"
           >
             <X size={20} />
           </button>
         </div>
 
-        <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
-          Ogni utente ha un profilo completamente separato. I piani alimentari, le scelte dei pasti e
-          le liste della spesa sono rigorosamente isolati.
-        </p>
-
-        {/* Elenco Utenti */}
-        <div className="space-y-1.5">
-          <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
-            Profili Rapidi
-          </label>
-          <div className="grid grid-cols-1 gap-1.5">
-            {availableUsers.map((u) => {
-              const isCurrent = currentUser === u;
-              return (
-                <button
-                  key={u}
-                  onClick={() => {
-                    onSwitchUser(u);
-                    onClose();
-                  }}
-                  className={`w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between transition-all ${
-                    isCurrent
-                      ? "bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 text-[#ea580c] dark:text-orange-400"
-                      : "bg-stone-50 dark:bg-[#222227] hover:bg-stone-100 dark:hover:bg-[#28282e] text-stone-700 dark:text-stone-300"
-                  }`}
-                >
-                  <span>{u}</span>
-                  {isCurrent && <Check size={16} className="text-[#F7931E]" />}
-                </button>
-              );
-            })}
+        {/* Info Utente */}
+        <div className="p-4 rounded-2xl bg-stone-50 dark:bg-[#222228] border border-stone-200/70 dark:border-stone-800 flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-orange-100 dark:bg-orange-950/60 text-[#ea580c] dark:text-orange-400 flex items-center justify-center font-bold text-lg shrink-0">
+            <User size={24} />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-bold text-sm text-stone-900 dark:text-stone-100 truncate">
+              {currentUser.name}
+            </h3>
+            <p className="text-xs text-stone-500 dark:text-stone-400 truncate">
+              {currentUser.email}
+            </p>
+            <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+              Autenticato &bull; Spazio Dati Riservato
+            </div>
           </div>
         </div>
 
-        {/* Aggiungi Nuovo Utente */}
-        <form onSubmit={handleCreateUser} className="pt-2 space-y-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-stone-400">
-            Aggiungi Profilo Amico
-          </label>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={newUserName}
-              onChange={(e) => setNewUserName(e.target.value)}
-              placeholder="Es. Luca"
-              className="flex-1 px-3 py-2 text-xs rounded-xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-[#202025] text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#F7931E]"
-            />
+        <p className="text-xs text-stone-500 dark:text-stone-400 leading-relaxed">
+          I tuoi piani alimentari, le opzioni selezionate e la lista della spesa sono rigorosamente
+          associati al tuo account personale e inaccessibili ad altri utenti.
+        </p>
+
+        {/* Azioni Account */}
+        <div className="space-y-2 pt-1">
+          {/* Rimuovi / Cambia Piano se presente */}
+          {hasActivePlan && onResetPlan && (
             <button
-              type="submit"
-              disabled={!newUserName.trim()}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-[#F7931E] hover:bg-[#ea580c] disabled:opacity-50 text-white flex items-center gap-1.5 transition-colors"
+              onClick={() => {
+                if (window.confirm("Vuoi rimuovere il piano attivo corrente per inserirne uno nuovo?")) {
+                  onResetPlan();
+                  onClose();
+                }
+              }}
+              className="w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between bg-stone-100 dark:bg-[#25252b] hover:bg-stone-200 dark:hover:bg-[#2d2d34] text-stone-700 dark:text-stone-300 transition-colors cursor-pointer"
             >
-              <UserPlus size={14} />
-              <span>Aggiungi</span>
+              <div className="flex items-center gap-2">
+                <RefreshCw size={15} className="text-stone-500" />
+                <span>Rimuovi piano alimentare attivo</span>
+              </div>
             </button>
-          </div>
-        </form>
+          )}
+
+          {/* Disconnetti */}
+          <button
+            onClick={() => {
+              onLogout();
+              onClose();
+            }}
+            className="w-full py-2.5 px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 bg-[#F7931E] hover:bg-[#ea580c] text-white shadow-sm transition-colors cursor-pointer"
+          >
+            <LogOut size={15} />
+            <span>Disconnetti (Logout)</span>
+          </button>
+
+          {/* Elimina Account */}
+          <button
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Sei sicuro di voler eliminare definitivamente il tuo account e tutti i dati salvati (piano, pasti, spesa)?"
+                )
+              ) {
+                onDeleteAccount();
+                onClose();
+              }
+            }}
+            className="w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
+          >
+            <Trash2 size={14} />
+            <span>Elimina account e cancella tutti i miei dati</span>
+          </button>
+        </div>
       </div>
     </div>
   );

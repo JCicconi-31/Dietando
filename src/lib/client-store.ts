@@ -1,26 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { SAMPLE_PLAN } from "@/data/sample-plan";
 import { MealSelection, Plan } from "@/types/diet";
 
-const STORAGE_KEYS = {
-  ACTIVE_PLAN: "diet_active_plan",
-  MENU_SELECTIONS: "diet_menu_selections",
-  PURCHASED_ITEMS: "diet_purchased_items",
-  WEEKS_COUNT: "diet_weeks_count",
-  FIXED_VEG: "diet_fixed_veg_enabled",
-  FIXED_VEG_GRAMS: "diet_fixed_veg_grams",
-};
-
 export interface LocalDietState {
-  plan: Plan;
+  plan: Plan | null;
   selections: Record<string, MealSelection>;
   purchasedItems: Record<string, boolean>;
   weeksCount: number;
   addFixedVegetables: boolean;
   fixedVegetableGrams: number;
   isOnline: boolean;
+  isInitialized: boolean;
   setOption: (dayOfWeek: string, mealType: string, optionId: string) => void;
   toggleFreeMeal: (dayOfWeek: string, mealType: string) => void;
   togglePurchased: (itemKey: string) => void;
@@ -29,10 +21,12 @@ export interface LocalDietState {
   setFixedVegetableGrams: (grams: number) => void;
   resetPurchased: () => void;
   updateCustomPlan: (newPlan: Plan) => void;
+  removePlan: () => void;
+  loadSamplePlan: () => void;
 }
 
-export function useDietStore(): LocalDietState {
-  const [plan, setPlan] = useState<Plan>(SAMPLE_PLAN);
+export function useDietStore(userId?: string | null): LocalDietState {
+  const [plan, setPlan] = useState<Plan | null>(null);
   const [selections, setSelections] = useState<Record<string, MealSelection>>({});
   const [purchasedItems, setPurchasedItems] = useState<Record<string, boolean>>({});
   const [weeksCount, setWeeksCountState] = useState<number>(1);
@@ -41,39 +35,77 @@ export function useDietStore(): LocalDietState {
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
-  // Caricamento iniziale dallo storage locale (offline-ready)
+  // Helper per chiavi di storage isolate per utente
+  const getKeys = useCallback((uid: string) => ({
+    plan: `diet_plan_${uid}`,
+    selections: `diet_selections_${uid}`,
+    purchased: `diet_purchased_${uid}`,
+    weeks: `diet_weeks_${uid}`,
+    veg: `diet_fixed_veg_${uid}`,
+    vegGrams: `diet_fixed_veg_grams_${uid}`,
+  }), []);
+
+  // Caricamento iniziale dallo storage locale (strettamente isolato per userId)
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    if (!userId) {
+      setPlan(null);
+      setSelections({});
+      setPurchasedItems({});
+      setIsInitialized(true);
+      return;
+    }
+
+    const keys = getKeys(userId);
+
     try {
-      const savedPlan = localStorage.getItem(STORAGE_KEYS.ACTIVE_PLAN);
+      const savedPlan = localStorage.getItem(keys.plan);
       if (savedPlan) {
-        setPlan(JSON.parse(savedPlan));
+        try {
+          const parsedPlan = JSON.parse(savedPlan);
+          setPlan(parsedPlan);
+        } catch {
+          setPlan(null);
+        }
+      } else {
+        // Nessun piano di default! L'utente deve inserirlo.
+        setPlan(null);
       }
 
-      const savedSelections = localStorage.getItem(STORAGE_KEYS.MENU_SELECTIONS);
+      const savedSelections = localStorage.getItem(keys.selections);
       if (savedSelections) {
         setSelections(JSON.parse(savedSelections));
+      } else {
+        setSelections({});
       }
 
-      const savedPurchased = localStorage.getItem(STORAGE_KEYS.PURCHASED_ITEMS);
+      const savedPurchased = localStorage.getItem(keys.purchased);
       if (savedPurchased) {
         setPurchasedItems(JSON.parse(savedPurchased));
+      } else {
+        setPurchasedItems({});
       }
 
-      const savedWeeks = localStorage.getItem(STORAGE_KEYS.WEEKS_COUNT);
+      const savedWeeks = localStorage.getItem(keys.weeks);
       if (savedWeeks) {
         setWeeksCountState(Number(savedWeeks) || 1);
+      } else {
+        setWeeksCountState(1);
       }
 
-      const savedVeg = localStorage.getItem(STORAGE_KEYS.FIXED_VEG);
+      const savedVeg = localStorage.getItem(keys.veg);
       if (savedVeg !== null) {
         setAddFixedVegetablesState(savedVeg === "true");
+      } else {
+        setAddFixedVegetablesState(false);
       }
 
-      const savedVegGrams = localStorage.getItem(STORAGE_KEYS.FIXED_VEG_GRAMS);
+      const savedVegGrams = localStorage.getItem(keys.vegGrams);
       if (savedVegGrams) {
         setFixedVegetableGramsState(Number(savedVegGrams) || 200);
+      } else {
+        setFixedVegetableGramsState(200);
       }
     } catch (e) {
       console.warn("Impossibile leggere dallo storage locale:", e);
@@ -92,22 +124,28 @@ export function useDietStore(): LocalDietState {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
-  }, []);
+  }, [userId, getKeys]);
 
   // Salvataggio persistente ad ogni mutazione
   useEffect(() => {
-    if (!isInitialized || typeof window === "undefined") return;
+    if (!isInitialized || typeof window === "undefined" || !userId) return;
+    const keys = getKeys(userId);
+
     try {
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_PLAN, JSON.stringify(plan));
-      localStorage.setItem(STORAGE_KEYS.MENU_SELECTIONS, JSON.stringify(selections));
-      localStorage.setItem(STORAGE_KEYS.PURCHASED_ITEMS, JSON.stringify(purchasedItems));
-      localStorage.setItem(STORAGE_KEYS.WEEKS_COUNT, weeksCount.toString());
-      localStorage.setItem(STORAGE_KEYS.FIXED_VEG, addFixedVegetables.toString());
-      localStorage.setItem(STORAGE_KEYS.FIXED_VEG_GRAMS, fixedVegetableGrams.toString());
+      if (plan) {
+        localStorage.setItem(keys.plan, JSON.stringify(plan));
+      } else {
+        localStorage.removeItem(keys.plan);
+      }
+      localStorage.setItem(keys.selections, JSON.stringify(selections));
+      localStorage.setItem(keys.purchased, JSON.stringify(purchasedItems));
+      localStorage.setItem(keys.weeks, weeksCount.toString());
+      localStorage.setItem(keys.veg, addFixedVegetables.toString());
+      localStorage.setItem(keys.vegGrams, fixedVegetableGrams.toString());
     } catch (e) {
       console.warn("Impossibile salvare su storage locale:", e);
     }
-  }, [plan, selections, purchasedItems, weeksCount, addFixedVegetables, fixedVegetableGrams, isInitialized]);
+  }, [plan, selections, purchasedItems, weeksCount, addFixedVegetables, fixedVegetableGrams, isInitialized, userId, getKeys]);
 
   const setOption = (dayOfWeek: string, mealType: string, optionId: string) => {
     const key = `${dayOfWeek}_${mealType}`;
@@ -170,6 +208,24 @@ export function useDietStore(): LocalDietState {
     setPurchasedItems({});
   };
 
+  const removePlan = () => {
+    setPlan(null);
+    setSelections({});
+    setPurchasedItems({});
+    if (userId && typeof window !== "undefined") {
+      const keys = getKeys(userId);
+      localStorage.removeItem(keys.plan);
+      localStorage.removeItem(keys.selections);
+      localStorage.removeItem(keys.purchased);
+    }
+  };
+
+  const loadSamplePlan = () => {
+    setPlan(SAMPLE_PLAN);
+    setSelections({});
+    setPurchasedItems({});
+  };
+
   return {
     plan,
     selections,
@@ -178,6 +234,7 @@ export function useDietStore(): LocalDietState {
     addFixedVegetables,
     fixedVegetableGrams,
     isOnline,
+    isInitialized,
     setOption,
     toggleFreeMeal,
     togglePurchased,
@@ -186,5 +243,7 @@ export function useDietStore(): LocalDietState {
     setFixedVegetableGrams,
     resetPurchased,
     updateCustomPlan,
+    removePlan,
+    loadSamplePlan,
   };
 }
