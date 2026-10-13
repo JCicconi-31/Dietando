@@ -75,9 +75,9 @@ export function MealCard({
         {/* Pulsante Pasto Libero */}
         <button
           onClick={onToggleFreeMeal}
-          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all ${
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 select-none ${
             isFreeMeal
-              ? "bg-amber-500 text-white shadow-sm shadow-amber-500/30"
+              ? "bg-amber-500 text-white shadow-sm shadow-amber-500/30 font-bold"
               : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
           }`}
           title="Segna come pasto libero (escluso dalla spesa)"
@@ -100,16 +100,16 @@ export function MealCard({
         <>
           {/* Switcher Opzioni Alternative ("oppure") */}
           {meal.options.length > 1 && (
-            <div className="flex items-center gap-1.5 mb-3.5 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex items-center gap-1.5 mb-3 overflow-x-auto no-scrollbar pb-1">
               {meal.options.map((opt, idx) => {
                 const isSelected = opt.id === activeOption?.id;
                 return (
                   <button
                     key={opt.id}
                     onClick={() => onSelectOption(opt.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer active:scale-95 select-none ${
                       isSelected
-                        ? "bg-[#F7931E] text-white shadow-sm shadow-orange-500/25"
+                        ? "bg-[#F7931E] text-white shadow-sm shadow-orange-500/25 font-bold"
                         : "bg-stone-100 dark:bg-stone-800 text-stone-700 dark:text-stone-300 hover:bg-stone-200 dark:hover:bg-stone-700"
                     }`}
                   >

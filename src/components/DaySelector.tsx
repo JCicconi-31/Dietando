@@ -46,8 +46,8 @@ interface DaySelectorProps {
 export function DaySelector({ selectedDay, onSelectDay, currentDay = "LUNEDI" }: DaySelectorProps) {
 
   return (
-    <div className="w-full overflow-x-auto no-scrollbar py-2">
-      <div className="flex items-center gap-1.5 min-w-max px-1">
+    <div className="w-full py-1">
+      <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
         {DAYS_INFO.map((d) => {
           const isSelected = selectedDay === d.key;
           const isToday = currentDay === d.key;
@@ -56,21 +56,25 @@ export function DaySelector({ selectedDay, onSelectDay, currentDay = "LUNEDI" }:
             <button
               key={d.key}
               onClick={() => onSelectDay(d.key)}
-              className={`relative px-3.5 py-2 rounded-xl text-xs font-semibold transition-all flex flex-col items-center gap-0.5 ${
+              className={`relative py-2 sm:py-2.5 px-1 rounded-xl text-xs font-semibold transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer active:scale-95 select-none ${
                 isSelected
-                  ? "bg-[#F7931E] text-white shadow-md shadow-orange-500/25 scale-[1.02]"
-                  : "bg-white dark:bg-[#1f1f23] text-stone-700 dark:text-stone-300 border border-stone-200 dark:border-stone-800 hover:border-orange-300 dark:hover:border-orange-700"
+                  ? "bg-[#F7931E] text-white shadow-md shadow-orange-500/25 scale-[1.02] font-bold"
+                  : "bg-white dark:bg-[#1f1f23] text-stone-700 dark:text-stone-300 border border-stone-200/80 dark:border-stone-800 hover:border-orange-300 dark:hover:border-orange-750"
               }`}
             >
-              <span>{d.short}</span>
-              {isToday && (
+              <span className="text-[11px] sm:text-xs truncate">{d.short}</span>
+              {isToday ? (
                 <span
-                  className={`text-[9px] px-1 rounded-full uppercase tracking-wider font-extrabold ${
-                    isSelected ? "bg-white/20 text-white" : "bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400"
+                  className={`text-[8.5px] px-1 rounded-full uppercase tracking-wider font-extrabold ${
+                    isSelected
+                      ? "bg-white/25 text-white"
+                      : "bg-orange-100 dark:bg-orange-950/70 text-orange-600 dark:text-orange-400"
                   }`}
                 >
                   Oggi
                 </span>
+              ) : (
+                <span className="text-[8.5px] opacity-0 select-none">&bull;</span>
               )}
             </button>
           );

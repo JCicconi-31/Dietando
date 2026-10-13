@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Calendar,
   ShoppingBag,
@@ -15,6 +15,7 @@ import { Header } from "@/components/Header";
 import { DaySelector, getCurrentDayOfWeek, DAYS_INFO } from "@/components/DaySelector";
 import { MealCard } from "@/components/MealCard";
 import { ShoppingListView } from "@/components/ShoppingListView";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ImportJsonModal } from "@/components/ImportJsonModal";
 import { PrivacyModal } from "@/components/PrivacyModal";
 import { AccountModal } from "@/components/AccountModal";
@@ -25,6 +26,7 @@ import { validateDietRules } from "@/lib/rules-validator";
 import { useDietStore } from "@/lib/client-store";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { getCurrentAuthUser, logoutUser, deleteUserAccount, AuthUser } from "@/lib/client-auth";
+import { aggregateShoppingList } from "@/lib/shopping-list";
 import { DayOfWeek } from "@/types/diet";
 
 export default function HomePage() {
@@ -165,6 +167,26 @@ export default function HomePage() {
   const todayLabel = DAYS_INFO.find((d) => d.key === todayKey)?.label || "Oggi";
   const selectedDayLabel = DAYS_INFO.find((d) => d.key === selectedDay)?.label || "Lunedì";
 
+  // Conteggio articoli rimanenti nella lista spesa per badge mobile
+  const unpurchasedCount = useMemo(() => {
+    if (!plan) return 0;
+    try {
+      const groups = aggregateShoppingList(plan, selections, {
+        weeksCount,
+        addFixedVegetables,
+        fixedVegetableGrams,
+        purchasedItems,
+        selectedDays: selectedShoppingDays,
+      });
+      return groups.reduce(
+        (acc, group) => acc + group.items.filter((item) => !item.isPurchased).length,
+        0
+      );
+    } catch {
+      return 0;
+    }
+  }, [plan, selections, weeksCount, addFixedVegetables, fixedVegetableGrams, selectedShoppingDays, purchasedItems]);
+
   const handleDeleteAllData = () => {
     if (currentUser) {
       deleteUserAccount(currentUser.id);
@@ -187,8 +209,8 @@ export default function HomePage() {
         onToggleTheme={toggleTheme}
       />
 
-      {/* Main Content Container */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-4 py-5 space-y-5 pb-24">
+      {/* Main Content Container con safe padding per bottom nav */}
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5 pb-24 md:pb-12">
         {/* Caso 3: Nessun piano presente per questo utente -> Schermata di avviso inserimento */}
         {!plan ? (
           <EmptyPlanState
@@ -198,13 +220,13 @@ export default function HomePage() {
           />
         ) : (
           <>
-            {/* Banner Titolo Piano Attivo */}
-            <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent dark:from-orange-500/20 dark:via-amber-500/10 p-4 sm:p-5 rounded-3xl border border-orange-200/50 dark:border-orange-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-xs font-bold text-[#ea580c] dark:text-orange-400 uppercase tracking-wider mb-1">
-                  <Sparkles size={14} /> Piano Nutrizionale di {currentUser.name}
+            {/* Banner Titolo Piano Attivo (Compatto su Mobile) */}
+            <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent dark:from-orange-500/20 dark:via-amber-500/10 p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-orange-200/50 dark:border-orange-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-[#ea580c] dark:text-orange-400 uppercase tracking-wider mb-0.5">
+                  <Sparkles size={13} /> Piano Nutrizionale
                 </div>
-                <h2 className="text-lg sm:text-xl font-black text-stone-900 dark:text-stone-100">
+                <h2 className="text-base sm:text-xl font-black text-stone-900 dark:text-stone-100 truncate">
                   {plan.title}
                 </h2>
                 <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5 line-clamp-1">
@@ -212,17 +234,17 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end shrink-0 pt-1 sm:pt-0 border-t border-orange-200/30 sm:border-0">
                 <button
                   onClick={() => setIsImportJsonOpen(true)}
-                  className="text-xs font-bold px-3 py-2 rounded-xl bg-[#F7931E] hover:bg-[#ea580c] text-white transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  className="text-xs font-bold px-3 py-1.5 sm:py-2 rounded-xl bg-[#F7931E] hover:bg-[#ea580c] text-white transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
                 >
-                  <Sparkles size={14} />
-                  <span>Sostituisci Piano (JSON)</span>
+                  <Sparkles size={13} />
+                  <span>Importa JSON</span>
                 </button>
                 <button
                   onClick={() => setActiveTab("REGOLE")}
-                  className="text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#202025] border border-orange-200 dark:border-orange-850 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-[#ea580c] dark:text-orange-400 transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="hidden md:flex text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#202025] border border-orange-200 dark:border-orange-850 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-[#ea580c] dark:text-orange-400 transition-colors items-center gap-1.5 cursor-pointer"
                 >
                   <ClipboardList size={14} />
                   <span>{plan.rules?.length || 0} Regole</span>
@@ -234,15 +256,15 @@ export default function HomePage() {
                     }
                   }}
                   title="Rimuovi questo piano"
-                  className="text-xs font-semibold p-2 rounded-xl bg-white dark:bg-[#202025] border border-stone-200 dark:border-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-stone-500 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
+                  className="text-xs font-semibold p-1.5 sm:p-2 rounded-xl bg-white dark:bg-[#202025] border border-stone-200 dark:border-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer active:scale-95"
                 >
-                  <Trash2 size={14} />
+                  <Trash2 size={15} />
                 </button>
               </div>
             </div>
 
-            {/* Tab Navigation: Mobile First */}
-            <div className="flex items-center bg-stone-200/70 dark:bg-[#1c1c20] p-1.5 rounded-2xl gap-1">
+            {/* Tab Navigation per Desktop (su smartphone è attiva la dock bar in basso) */}
+            <div className="hidden md:flex items-center bg-stone-200/70 dark:bg-[#1c1c20] p-1.5 rounded-2xl gap-1">
               <button
                 onClick={() => setActiveTab("OGGI")}
                 className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
@@ -277,6 +299,23 @@ export default function HomePage() {
               >
                 <ShoppingBag size={16} />
                 <span>Lista Spesa</span>
+                {unpurchasedCount > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-full bg-orange-100 dark:bg-orange-950/80 text-orange-600 dark:text-orange-400">
+                    {unpurchasedCount}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={() => setActiveTab("REGOLE")}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === "REGOLE"
+                    ? "bg-white dark:bg-[#2b2b32] text-[#F7931E] shadow-sm"
+                    : "text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
+                }`}
+              >
+                <ClipboardList size={16} />
+                <span>Regole ({plan.rules?.length || 0})</span>
               </button>
             </div>
 
@@ -507,6 +546,17 @@ export default function HomePage() {
         isStandalone={isStandalone}
         onNativeInstall={triggerInstall}
       />
+
+      {/* Dock Bar di Navigazione Mobile PWA (Smartphone) */}
+      {plan && (
+        <MobileBottomNav
+          activeTab={activeTab}
+          onTabChange={(t) => setActiveTab(t)}
+          todayShortLabel={DAYS_INFO.find((d) => d.key === todayKey)?.short || "Oggi"}
+          unpurchasedCount={unpurchasedCount}
+          rulesCount={plan.rules?.length || 0}
+        />
+      )}
     </div>
   );
 }

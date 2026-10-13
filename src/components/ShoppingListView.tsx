@@ -399,8 +399,8 @@ export function ShoppingListView({
                     {group.items.map((item) => (
                       <label
                         key={item.itemKey}
-                        className={`flex items-center justify-between py-2.5 px-2 rounded-xl cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-850 transition-colors ${
-                          item.isPurchased ? "opacity-45" : ""
+                        className={`flex items-center justify-between py-3 px-2.5 sm:px-3 rounded-xl cursor-pointer hover:bg-stone-50 dark:hover:bg-stone-850 active:bg-orange-500/5 transition-all select-none ${
+                          item.isPurchased ? "opacity-50 bg-stone-50/40 dark:bg-stone-900/20" : ""
                         }`}
                       >
                         <div className="flex items-center gap-3 min-w-0 mr-3">
@@ -408,7 +408,7 @@ export function ShoppingListView({
                             type="checkbox"
                             checked={Boolean(item.isPurchased)}
                             onChange={() => onTogglePurchased(item.itemKey)}
-                            className="w-4 h-4 rounded text-[#F7931E] accent-[#F7931E] cursor-pointer"
+                            className="w-5 h-5 rounded text-[#F7931E] accent-[#F7931E] cursor-pointer shrink-0"
                           />
                           <span
                             className={`text-xs sm:text-sm font-medium text-stone-800 dark:text-stone-200 truncate ${
