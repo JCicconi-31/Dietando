@@ -1,0 +1,211 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String        @id @default(cuid())
+  email        String        @unique
+  passwordHash String?
+  name         String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  plans        Plan[]
+  weekMenus    WeekMenu[]
+  ingredients  Ingredient[]
+  settings     UserSettings?
+}
+
+model UserSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  defaultVegGramsLunch  Int      @default(200)
+  defaultVegGramsDinner Int      @default(200)
+  theme                 String   @default("system")
+}
+
+model Plan {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  startDate DateTime?
+  endDate   DateTime?
+  notes     String?
+  isActive  Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  days      Day[]
+  rules     Rule[]
+  weekMenus WeekMenu[]
+
+  @@index([userId])
+}
+
+enum DayOfWeek {
+  LUNEDI
+  MARTEDI
+  MERCOLEDI
+  GIOVEDI
+  VENERDI
+  SABATO
+  DOMENICA
+}
+
+model Day {
+  id         String    @id @default(cuid())
+  planId     String
+  plan       Plan      @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId     String
+  dayOfWeek  DayOfWeek
+  orderIndex Int
+
+  meals      Meal[]
+
+  @@index([planId, userId])
+}
+
+enum MealType {
+  COLAZIONE
+  SPUNTINO_MATTINA
+  PRANZO
+  SPUNTINO_POMERIGGIO
+  CENA
+  ALTRO
+}
+
+model Meal {
+  id         String    @id @default(cuid())
+  dayId      String
+  day        Day       @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  userId     String
+  mealType   MealType
+  name       String
+  orderIndex Int
+
+  options    Option[]
+
+  @@index([dayId, userId])
+}
+
+model Option {
+  id         String             @id @default(cuid())
+  mealId     String
+  meal       Meal               @relation(fields: [mealId], references: [id], onDelete: Cascade)
+  userId     String
+  name       String
+  orderIndex Int
+
+  ingredients OptionIngredient[]
+  menuEntries WeekMenuEntry[]
+
+  @@index([mealId, userId])
+}
+
+enum IngredientCategory {
+  VERDURA
+  FRUTTA
+  CARNE
+  PESCE
+  AFFETTATI
+  LATTICINI_UOVA
+  CEREALI_PASTA_PANE
+  LEGUMI
+  CONDIMENTI_OLIO
+  BEVANDE_SNACK
+  SURGELATI
+  ALTRO
+}
+
+model Ingredient {
+  id         String             @id @default(cuid())
+  userId     String
+  user       User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  category   IngredientCategory @default(ALTRO)
+  department String             @default("Altro")
+
+  optionLinks OptionIngredient[]
+
+  @@index([userId, name])
+}
+
+model OptionIngredient {
+  id           String     @id @default(cuid())
+  optionId     String
+  option       Option     @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  userId       String
+  amount       Float
+  unit         String     // 'g', 'ml', 'pezzi', 'fette', 'cucchiai', ecc.
+  notes        String?
+
+  @@index([optionId, userId])
+}
+
+model Rule {
+  id             String   @id @default(cuid())
+  planId         String
+  plan           Plan     @relation(fields: [planId], references: [id], onDelete: Cascade)
+  userId         String
+  type           String   // 'max_per_week' | 'min_per_week' | 'max_per_day' | 'free_meals_limit'
+  targetCategory String?  // 'AFFETTATI', 'PESCE', ecc.
+  max            Int?
+  min            Int?
+  description    String
+  exceptions     String?  // JSON string: es. ["prosciutto crudo"]
+
+  @@index([planId, userId])
+}
+
+model WeekMenu {
+  id             String          @id @default(cuid())
+  userId         String
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId         String
+  plan           Plan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  weekStartDate  DateTime
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  entries        WeekMenuEntry[]
+  purchasedItems PurchasedItem[]
+
+  @@unique([userId, weekStartDate])
+}
+
+model WeekMenuEntry {
+  id               String    @id @default(cuid())
+  weekMenuId       String
+  weekMenu         WeekMenu  @relation(fields: [weekMenuId], references: [id], onDelete: Cascade)
+  userId           String
+  dayOfWeek        DayOfWeek
+  mealType         MealType
+  selectedOptionId String?
+  selectedOption   Option?   @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  isFreeMeal       Boolean   @default(false)
+  extraVegGrams    Int       @default(0)
+  notes            String?
+
+  @@index([weekMenuId, userId])
+}
+
+model PurchasedItem {
+  id          String   @id @default(cuid())
+  weekMenuId  String
+  weekMenu    WeekMenu @relation(fields: [weekMenuId], references: [id], onDelete: Cascade)
+  userId      String
+  itemKey     String
+  isPurchased Boolean  @default(false)
+
+  @@unique([weekMenuId, itemKey])
+}

@@ -1,0 +1,17 @@
+{
+  "name": "Organizzatore Dieta",
+  "short_name": "Dieta",
+  "description": "Trasforma il piano alimentare del nutrizionista in uno strumento d'uso quotidiano: pasti, lista spesa e regole.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#F7931E",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
