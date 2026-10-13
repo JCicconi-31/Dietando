@@ -106,6 +106,8 @@ export default function HomePage() {
     updateCustomPlan,
     removePlan,
     loadSamplePlan,
+    addCustomOption,
+    removeCustomOption,
   } = useDietStore(currentUser?.id);
 
   const [activeTab, setActiveTab] = useState<"OGGI" | "SETTIMANA" | "SPESA" | "REGOLE">("OGGI");
@@ -358,6 +360,8 @@ export default function HomePage() {
                       fixedVegetableGrams={fixedVegetableGrams}
                       onSelectOption={(optId) => setOption(todayKey, meal.mealType, optId)}
                       onToggleFreeMeal={() => toggleFreeMeal(todayKey, meal.mealType)}
+                      onAddCustomOption={(data) => addCustomOption(todayKey, meal.mealType, data)}
+                      onRemoveCustomOption={(optId) => removeCustomOption(todayKey, meal.mealType, optId)}
                     />
                   ))}
                 </div>
@@ -393,6 +397,8 @@ export default function HomePage() {
                       fixedVegetableGrams={fixedVegetableGrams}
                       onSelectOption={(optId) => setOption(selectedDay, meal.mealType, optId)}
                       onToggleFreeMeal={() => toggleFreeMeal(selectedDay, meal.mealType)}
+                      onAddCustomOption={(data) => addCustomOption(selectedDay, meal.mealType, data)}
+                      onRemoveCustomOption={(optId) => removeCustomOption(selectedDay, meal.mealType, optId)}
                     />
                   ))}
                 </div>

@@ -2,7 +2,16 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { SAMPLE_PLAN } from "@/data/sample-plan";
-import { MealSelection, Plan, DayOfWeek, ALL_DAYS } from "@/types/diet";
+import {
+  MealSelection,
+  Plan,
+  DayOfWeek,
+  MealType,
+  Option,
+  CustomOptionInput,
+  ALL_DAYS,
+} from "@/types/diet";
+import { inferCategoryAndDepartment } from "@/lib/custom-food";
 
 export interface LocalDietState {
   plan: Plan | null;
@@ -26,6 +35,12 @@ export interface LocalDietState {
   updateCustomPlan: (newPlan: Plan) => void;
   removePlan: () => void;
   loadSamplePlan: () => void;
+  addCustomOption: (
+    dayOfWeek: DayOfWeek,
+    mealType: MealType,
+    customData: CustomOptionInput
+  ) => Option | null;
+  removeCustomOption: (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => void;
 }
 
 export function useDietStore(userId?: string | null): LocalDietState {
@@ -318,6 +333,148 @@ export function useDietStore(userId?: string | null): LocalDietState {
     setPurchasedItems({});
   };
 
+  const addCustomOption = useCallback(
+    (
+      dayOfWeek: DayOfWeek,
+      mealType: MealType,
+      customData: CustomOptionInput
+    ): Option | null => {
+      if (!plan) return null;
+
+      const trimmedName = customData.name.trim();
+      if (!trimmedName) return null;
+
+      const inferred = inferCategoryAndDepartment(trimmedName);
+      const category = customData.category || inferred.category || "ALTRO";
+      const department = customData.department || inferred.department || "Banco Frigo";
+      const amount =
+        typeof customData.amount === "number" && customData.amount > 0
+          ? customData.amount
+          : inferred.defaultAmount || 100;
+      const unit =
+        customData.unit && customData.unit.trim()
+          ? customData.unit.trim()
+          : inferred.defaultUnit || "g";
+
+      const optId = `custom-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const ingId = `custom-ing-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+
+      let createdOption: Option | null = null;
+
+      const updatedDays = plan.days.map((day) => {
+        if (day.dayOfWeek !== dayOfWeek) return day;
+
+        const updatedMeals = day.meals.map((meal) => {
+          if (meal.mealType !== mealType) return meal;
+
+          createdOption = {
+            id: optId,
+            mealId: meal.id,
+            name: trimmedName,
+            orderIndex: meal.options.length,
+            isCustom: true,
+            type: "CUSTOM_SUBSTITUTION",
+            isCheatMeal: false,
+            ingredients: [
+              {
+                id: `oi-${optId}`,
+                ingredientId: ingId,
+                ingredient: {
+                  id: ingId,
+                  name: trimmedName,
+                  category,
+                  department,
+                },
+                amount,
+                unit,
+                notes: customData.notes,
+              },
+            ],
+          };
+
+          return {
+            ...meal,
+            options: [...meal.options, createdOption!],
+          };
+        });
+
+        return { ...day, meals: updatedMeals };
+      });
+
+      if (!createdOption) return null;
+
+      setPlan({
+        ...plan,
+        days: updatedDays,
+      });
+
+      // Seleziona immediatamente l'opzione custom (FR-4) e imposta isFreeMeal a false
+      const key = `${dayOfWeek}_${mealType}`;
+      setSelections((prev) => ({
+        ...prev,
+        [key]: {
+          dayOfWeek,
+          mealType,
+          selectedOptionId: optId,
+          isFreeMeal: false,
+          extraVegGrams: prev[key]?.extraVegGrams ?? 0,
+        },
+      }));
+
+      return createdOption;
+    },
+    [plan]
+  );
+
+  const removeCustomOption = useCallback(
+    (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => {
+      if (!plan) return;
+
+      let fallbackOptionId: string | null = null;
+
+      const updatedDays = plan.days.map((day) => {
+        if (day.dayOfWeek !== dayOfWeek) return day;
+
+        const updatedMeals = day.meals.map((meal) => {
+          if (meal.mealType !== mealType) return meal;
+
+          const remainingOptions = meal.options.filter((opt) => opt.id !== optionId);
+          fallbackOptionId = remainingOptions[0]?.id || null;
+
+          return {
+            ...meal,
+            options: remainingOptions,
+          };
+        });
+
+        return { ...day, meals: updatedMeals };
+      });
+
+      setPlan({
+        ...plan,
+        days: updatedDays,
+      });
+
+      // Se l'opzione rimossa era selezionata, ripristina la prima opzione disponibile
+      const key = `${dayOfWeek}_${mealType}`;
+      setSelections((prev) => {
+        const current = prev[key];
+        if (current?.selectedOptionId === optionId) {
+          return {
+            ...prev,
+            [key]: {
+              ...current,
+              selectedOptionId: fallbackOptionId,
+              isFreeMeal: false,
+            },
+          };
+        }
+        return prev;
+      });
+    },
+    [plan]
+  );
+
   return {
     plan,
     selections,
@@ -340,5 +497,7 @@ export function useDietStore(userId?: string | null): LocalDietState {
     updateCustomPlan,
     removePlan,
     loadSamplePlan,
+    addCustomOption,
+    removeCustomOption,
   };
 }

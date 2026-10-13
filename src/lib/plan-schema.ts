@@ -55,6 +55,9 @@ export const OptionSchema = z.object({
   mealId: z.string().optional().default(""),
   name: z.string().min(1, "Il nome dell'opzione è obbligatorio"),
   orderIndex: z.number().int().default(0),
+  isCustom: z.boolean().optional(),
+  type: z.string().optional(),
+  isCheatMeal: z.boolean().optional(),
   ingredients: z.array(OptionIngredientSchema).default([]),
 });
 

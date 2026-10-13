@@ -60,7 +60,19 @@ export interface Option {
   mealId: string;
   name: string; // es. "Pasta al pomodoro e ricotta"
   orderIndex: number;
+  isCustom?: boolean;
+  type?: "ORIGINAL" | "CUSTOM_SUBSTITUTION" | "FREE_MEAL" | string;
+  isCheatMeal?: boolean;
   ingredients: OptionIngredient[];
+}
+
+export interface CustomOptionInput {
+  name: string;
+  amount?: number;
+  unit?: string;
+  category?: IngredientCategory;
+  department?: string;
+  notes?: string;
 }
 
 export interface Meal {
