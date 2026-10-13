@@ -6,8 +6,8 @@
 
 ## ⚡ Dichiarazione di Sviluppo (Vibe Coding)
 
-Questo progetto è stato concepito e sviluppato seguendo la metodologia del **Vibe Coding** (sviluppo software full-stack assistito da intelligenza artificiale avanzata in pair programming). 
-Grazie a questo approccio, idee di prodotto e requisiti funzionali sono stati tradotti in un'architettura web moderna, mobile-first, type-safe (TypeScript rigoroso, Zod runtime validation, Vitest test suite) ed estremamente reattiva in tempi record.
+Questo progetto è stato concepito e sviluppato seguendo la metodologia del **Vibe Coding** (sviluppo software full-stack in pair programming assistito da intelligenza artificiale avanzata). 
+Requisiti funzionali e scelte architetturali sono stati tradotti in un'architettura web moderna, mobile-first, rigorosamente type-safe (TypeScript strict, Zod runtime validation, Vitest test suite) e ad altissime prestazioni.
 
 ---
 
@@ -16,25 +16,25 @@ Grazie a questo approccio, idee di prodotto e requisiti funzionali sono stati tr
 > **IMPORTANTE — LEGGERE CON ATTENZIONE PRIMA DELL'USO**
 > 
 > 1. **Nessun Consiglio Medico o Nutrizionale:** **Organizzatore Dieta** NON è un dispositivo medico e NON fornisce consulenze nutrizionali, diagnosi, prescrizioni o calcoli calorici/metabolici.
-> 2. **Solo Supporto Organizzativo:** L'applicazione lavora **esclusivamente sui dati del piano alimentare caricato dall'utente** e prescritto da un nutrizionista, dietista o medico abilitato. Non inventa alimenti né modifica le indicazioni prescritte.
-> 3. **Responsabilità:** L'utente è l'unico responsabile delle scelte alimentari e dell'accuratezza dei dati importati. Per qualsiasi dubbio relativo alla salute o al proprio fabbisogno nutrizionale, consultare sempre un professionista sanitario abilitato.
+> 2. **Solo Supporto Organizzativo:** L'applicazione lavora **esclusivamente sui dati del piano alimentare caricato dall'utente** e precedentemente prescritto da un nutrizionista, dietista o medico abilitato. Non inventa alimenti né modifica le indicazioni prescritte.
+> 3. **Responsabilità:** L'utente è l'unico responsabile delle proprie scelte alimentari e dell'accuratezza dei dati importati. Per qualsiasi dubbio relativo alla salute o al proprio fabbisogno nutrizionale, consultare sempre un professionista sanitario abilitato.
 
 ---
 
 ## ✨ Funzionalità Principali
 
-- 📱 **Mobile-First & PWA Installabile:** Progettata per essere usata a una mano dallo smartphone e installabile come app nativa (iOS/Android) con funzionamento offline.
+- 📱 **Mobile-First & PWA Installabile:** Progettata per l'uso immediato da smartphone e installabile come app nativa (iOS/Android) con funzionamento al 100% offline.
 - 🎯 **Priorità UX "Oggi":** All'apertura dell'app visualizzi subito i pasti del giorno corrente e puoi cambiare al volo l'opzione che desideri mangiare.
-- 🔄 **Alternative dei Pasti ("Oppure"):** Gestione chiara delle scelte alternative previste dal nutrizionista (es. pasta al tonno *oppure* riso col pollo) con aggiornamento immediato degli ingredienti e grammature.
-- 🎉 **Pasto Libero:** Con un tap puoi contrassegnare qualsiasi pasto come "Pasto Libero" (es. pizza con amici): il pasto viene escluso automaticamente dalla lista della spesa.
+- 🔄 **Alternative dei Pasti ("Oppure"):** Gestione delle scelte alternative previste dal nutrizionista (es. pasta al tonno *oppure* riso col pollo) con aggiornamento immediato di ingredienti e grammature.
+- 🎉 **Pasto Libero:** Con un tap puoi contrassegnare qualsiasi pasto come "Pasto Libero" (es. pizza con amici): il pasto viene escluso automaticamente dal calcolo della spesa.
 - 🛒 **Lista della Spesa Intelligente:**
   - **Moltiplicatore $N$ settimane:** Calcola la spesa per 1, 2, 3 o 4 settimane consecutive.
   - **Conversione automatica unità:** Converte automaticamente quantità $\ge 1000\text{g} \to \text{kg}$ e $\ge 1000\text{ml} \to \text{l}$.
   - **Raggruppamento per reparto:** Ortofrutta, Banco Frigo, Macelleria, Pescheria, Dispensa e Cereali, Condimenti, Surgelati.
   - **Aggiunta verdure fisse:** Opzione per aggiungere automaticamente una porzione fissa di verdure di stagione (+200g) a pranzo e cena.
-  - **Caselle "Comprato":** Spunta gli ingredienti mentre sei tra le corsie del supermercato (stato salvato anche offline!).
-  - **Copia Lista:** Copia la spesa ordinata per reparto negli appunti con un solo click.
-- ⚖️ **Validatore di Regole del Piano (Fase 2):** Controlla le frequenze settimanali (es. affettati max 3 volte, pesce almeno 3 volte, pasti liberi max 2) e mostra avvisi discreti senza bloccare l'utente.
+  - **Caselle "Comprato":** Spunta gli ingredienti acquistati al supermercato (stato salvato anche offline!).
+  - **Copia Lista:** Copia la spesa formattata e ordinata per reparto negli appunti con un solo click.
+- ⚖️ **Validatore di Regole del Piano:** Controlla le frequenze settimanali (es. affettati max 3 volte, pesce almeno 3 volte, pasti liberi max 2) e mostra avvisi discreti senza mai bloccare l'utente.
 - 📄 **Importazione Piano tramite JSON & AI Prompt:** Nessuna spesa di crediti API! Carica il tuo piano nutrizionale tramite file `.json` generato gratuitamente tramite Claude o Gemini con il nostro prompt guidato e revisione obbligatoria prima del salvataggio.
 - 🔒 **Privacy Rigorosa:** Zero analytics o tracker di terze parti, isolamento completo per utente e pulsante per cancellare tutti i dati personali.
 
@@ -45,7 +45,7 @@ Grazie a questo approccio, idee di prodotto e requisiti funzionali sono stati tr
 - **Frontend & Backend:** [Next.js 16](https://nextjs.org/) (App Router, Server Components)
 - **Linguaggio:** [TypeScript](https://www.typescriptlang.org/) (Strict Mode)
 - **Styling:** [Tailwind CSS v4](https://tailwindcss.com/) (Tema personalizzato `#F7931E`, Dark/Light Mode)
-- **Database & ORM:** [Prisma](https://www.prisma.io/) + PostgreSQL ([Neon](https://neon.tech/) o [Supabase](https://supabase.com/))
+- **Database & ORM:** [Prisma](https://www.prisma.io/) + PostgreSQL Serverless ([Neon](https://neon.tech/))
 - **Validazione Dati:** [Zod](https://zod.dev/)
 - **Testing:** [Vitest](https://vitest.dev/)
 - **PWA:** Web App Manifest + Service Worker nativo per cache offline
@@ -54,7 +54,7 @@ Grazie a questo approccio, idee di prodotto e requisiti funzionali sono stati tr
 
 ## 🚀 Come Estrarre il JSON dal PDF con Gemini o Claude
 
-Non servono chiavi API a pagamento nel codice dell'app. Puoi generare il file JSON del tuo piano alimentare in 4 semplici passaggi:
+Non servono chiavi API a pagamento nel codice dell'app. Puoi convertire il PDF della tua dieta in 4 semplici passaggi:
 
 1. Apri **[Google AI Studio](https://aistudio.google.com/)**, **[Gemini](https://gemini.google.com/)** o **[Claude](https://claude.ai/)**.
 2. Allega il file **PDF** della tua dieta rilasciato dal nutrizionista.
@@ -81,62 +81,78 @@ Il tuo compito è convertire fedelmente e integralmente l'intero piano alimentar
 - unit: usa "g" per i grammi, "ml" per i liquidi, "pezzi" per frutti/uova/panini, "fette" per fette biscottate/pane/affettati, "cucchiai" per l'olio.
 ```
 
-4. Salva la risposta come file `mio_piano.json` (oppure copiala) e caricala nell'app cliccando su **"Importa Piano (JSON)"**.
+4. Salva la risposta come file `dieta.json` (oppure copiala) e caricala nell'app cliccando su **"Importa Piano (JSON)"**.
 
 ---
 
-## 💻 Installazione e Setup Locale
+## 💻 Configurazione Database (Neon) & Setup Locale
 
-### Requisiti
-- Node.js versione 18.18+ o 20+
-- npm o pnpm
+### 1. Variabili d'ambiente (`.env`)
+Su **Neon**, Prisma necessita di due stringhe di connessione:
+- `DATABASE_URL`: Connessione tramite connection pooler (contiene `-pooler` nell'host).
+- `DIRECT_URL`: Connessione diretta senza connection pooler (identica, ma **senza `-pooler`** nell'host).
 
-### Passaggi
+Esempio:
+```env
+DATABASE_URL="postgresql://neondb_owner:PASSWORD@ep-tiny-mouse-b5l0ipc1-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
+DIRECT_URL="postgresql://neondb_owner:PASSWORD@ep-tiny-mouse-b5l0ipc1.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
+AUTH_SECRET="la-tua-chiave-segreta"
+NEXTAUTH_URL="http://localhost:3000"
+```
+
+### 2. Comandi Principali
 ```bash
-# 1. Clona il repository
-git clone https://github.com/TUO_USER/organizzatore-dieta.git
-cd organizzatore-dieta
+# Sincronizzare lo schema con il database Neon
+npx prisma db push
 
-# 2. Installa le dipendenze
-npm install
-
-# 3. Configura le variabili d'ambiente
-cp .env.example .env
-
-# 4. Genera il client Prisma
-npx prisma generate
-
-# 5. Esegui i test automatici
+# Eseguire tutti i test automatici
 npm test
 
-# 6. Avvia il server di sviluppo
+# Avviare l'app in locale
 npm run dev
-```
 
-Apri [http://localhost:3000](http://localhost:3000) nel browser per utilizzare l'applicazione.
+# Compilare per la produzione
+npm run build
+```
 
 ---
 
-## 🧪 Esecuzione dei Test Automatici
+## 🧪 Guida ai Test per Verificare che Funzioni
 
-L'applicazione include test automatici approfonditi per le logiche critiche di calcolo e validazione:
+Ecco la checklist passo-passo per verificare l'app:
 
+### Test 1: Test Automatici (Terminale)
+Esegui:
 ```bash
-# Esegue tutti i test una volta (CI mode)
 npm test
-
-# Esegue i test in modalità watch per sviluppo
-npm run test:watch
 ```
+Verifica che tutti i **16 test** per l'aggregatore della spesa e il validatore di regole passino con esito verde (✓).
 
----
+### Test 2: Avvio e Navigazione ("Oggi" e "Settimana")
+1. Avvia l'app con:
+   ```bash
+   npm run dev
+   ```
+2. Apri [http://localhost:3000](http://localhost:3000).
+3. Noterai che l'app si apre subito sulla tab **Oggi** mostrando i pasti del giorno.
+4. Clicca su **"Opzione 2"** in un pasto: gli ingredienti e le grammature si aggiornano istantaneamente.
+5. Clicca sul pulsante **"Libero"**: il pasto viene evidenziato come pasto libero.
 
-## 🚢 Deploy su Vercel
+### Test 3: Lista della Spesa
+1. Passa alla tab **"Lista Spesa"**.
+2. Seleziona il moltiplicatore **"2 sett"**: vedrai le quantità raddoppiare e quelle oltre 1000g convertirsi in **kg** (es. `1.66 kg`).
+3. Attiva il toggle **"Aggiungi verdure fisse a pranzo e cena (+200g)"**: compare la riga delle verdure nel reparto Ortofrutta.
+4. Clicca su una casella di spunta: l'ingrediente viene barrato e la percentuale di avanzamento avanza.
+5. Clicca su **"Copia lista"**: incolla gli appunti in un blocco note o su WhatsApp per verificare la formattazione pulita per reparto.
 
-1. Crea un database PostgreSQL gratuito su **[Neon.tech](https://neon.tech)** o **[Supabase](https://supabase.com)**.
-2. Collega il tuo repository GitHub a **[Vercel](https://vercel.com)**.
-3. Nelle impostazioni di Vercel (*Environment Variables*), imposta:
-   - `DATABASE_URL`: La stringa di connessione PostgreSQL con pooling.
-   - `DIRECT_URL`: La stringa di connessione PostgreSQL diretta.
-   - `AUTH_SECRET`: Una chiave casuale a 32 caratteri generata con `openssl rand -base64 32`.
-4. Clicca su **Deploy**. La tua PWA sarà immediatamente attiva e installabile su qualsiasi smartphone.
+### Test 4: Regole del Piano
+1. Passa alla tab **"Regole"**: vedrai lo stato in tempo reale di tutte le regole del nutrizionista (affettati, pesce, pasti liberi).
+2. Se superi la soglia consentita (es. selezionando più pasti liberi), la regola mostrerà un badge arancione di avviso senza bloccare l'app.
+
+### Test 5: Importazione File JSON
+1. Clicca sul pulsante **"Importa Piano (JSON)"** in alto.
+2. Prova a incollare un codice JSON o a caricare un file `.json`: l'app validerà la struttura e ti mostrerà la schermata di revisione prima di attivarlo.
+
+### Test 6: Funzionamento Offline & PWA
+1. Apri i DevTools del browser (`F12`), vai nella tab **Network** e imposta la velocità su **Offline**.
+2. Ricarica la pagina: l'app continua a caricarsi e funzionare regolarmente grazie al Service Worker e alla persistenza locale.
