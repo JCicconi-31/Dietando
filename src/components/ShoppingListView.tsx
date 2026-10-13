@@ -10,12 +10,15 @@ import {
   Layers,
   ChevronDown,
   ChevronUp,
+  Calendar,
 } from "lucide-react";
-import { Plan, MealSelection } from "@/types/diet";
+import { Plan, MealSelection, DayOfWeek, ALL_DAYS } from "@/types/diet";
 import {
   aggregateShoppingList,
   formatShoppingListAsText,
+  getNextNDays,
 } from "@/lib/shopping-list";
+import { DAYS_INFO } from "@/components/DaySelector";
 
 interface ShoppingListViewProps {
   plan: Plan;
@@ -24,10 +27,14 @@ interface ShoppingListViewProps {
   weeksCount: number;
   addFixedVegetables: boolean;
   fixedVegetableGrams: number;
+  selectedDays?: DayOfWeek[];
+  currentDay?: DayOfWeek;
   onTogglePurchased: (itemKey: string) => void;
   onResetPurchased: () => void;
   onSetWeeksCount: (weeks: number) => void;
   onToggleFixedVegetables: (enabled: boolean) => void;
+  onToggleDay?: (day: DayOfWeek) => void;
+  onSetSelectedDays?: (days: DayOfWeek[]) => void;
 }
 
 function getDepartmentIcon(dept: string) {
@@ -58,13 +65,19 @@ export function ShoppingListView({
   weeksCount,
   addFixedVegetables,
   fixedVegetableGrams,
+  selectedDays,
+  currentDay = "LUNEDI",
   onTogglePurchased,
   onResetPurchased,
   onSetWeeksCount,
   onToggleFixedVegetables,
+  onToggleDay,
+  onSetSelectedDays,
 }: ShoppingListViewProps) {
   const [copied, setCopied] = useState(false);
   const [collapsedDepts, setCollapsedDepts] = useState<Record<string, boolean>>({});
+
+  const activeDays = selectedDays ?? ALL_DAYS;
 
   // Calcola la lista aggregata per reparto
   const groups = useMemo(() => {
@@ -73,8 +86,9 @@ export function ShoppingListView({
       addFixedVegetables,
       fixedVegetableGrams,
       purchasedItems,
+      selectedDays: activeDays,
     });
-  }, [plan, selections, weeksCount, addFixedVegetables, fixedVegetableGrams, purchasedItems]);
+  }, [plan, selections, weeksCount, addFixedVegetables, fixedVegetableGrams, purchasedItems, activeDays]);
 
   // Conteggio totale e comprati
   const { totalItems, purchasedCount } = useMemo(() => {
@@ -92,7 +106,7 @@ export function ShoppingListView({
   const progressPercent = totalItems > 0 ? Math.round((purchasedCount / totalItems) * 100) : 0;
 
   const handleCopyList = async () => {
-    const text = formatShoppingListAsText(groups, weeksCount);
+    const text = formatShoppingListAsText(groups, weeksCount, activeDays);
     try {
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
@@ -121,8 +135,122 @@ export function ShoppingListView({
 
   return (
     <div className="space-y-4">
-      {/* Barra di Controllo: Moltiplicatore Settimane & Azioni */}
+      {/* Barra di Controllo: Giorni, Moltiplicatore Settimane & Azioni */}
       <div className="bg-white dark:bg-[#1a1a1e] rounded-2xl p-4 border border-stone-200 dark:border-stone-800 shadow-sm space-y-3.5">
+        
+        {/* SEZIONE 1: Selezione Giorni per la Spesa con Scorciatoie */}
+        <div className="space-y-2.5 pb-3 border-b border-stone-100 dark:border-stone-850">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-stone-700 dark:text-stone-300 flex items-center gap-1.5">
+                <Calendar size={14} className="text-[#F7931E]" />
+                Giorni per la spesa:
+              </span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 dark:bg-orange-950/40 text-[#ea580c] dark:text-orange-400 border border-orange-200/50 dark:border-orange-900/30">
+                {activeDays.length === 7
+                  ? "Tutta la settimana (7)"
+                  : activeDays.length === 0
+                  ? "0 selezionati"
+                  : `${activeDays.length} di 7 giorni`}
+              </span>
+            </div>
+
+            {/* Pulsanti Rapidi (Presets: 2gg, 3gg, 4gg, tutti, ecc.) */}
+            <div className="flex flex-wrap items-center gap-1">
+              <button
+                type="button"
+                onClick={() => onSetSelectedDays?.(ALL_DAYS)}
+                className={`px-2 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
+                  activeDays.length === 7
+                    ? "bg-[#F7931E] text-white shadow-sm"
+                    : "bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200"
+                }`}
+                title="Includi tutti i 7 giorni della settimana"
+              >
+                Tutti (7)
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSelectedDays?.(getNextNDays(currentDay, 2))}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-750 transition-colors cursor-pointer"
+                title={`Spesa per i prossimi 2 giorni partendo da oggi`}
+              >
+                2 giorni
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSelectedDays?.(getNextNDays(currentDay, 3))}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-750 transition-colors cursor-pointer"
+                title={`Spesa per i prossimi 3 giorni partendo da oggi`}
+              >
+                3 giorni
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSelectedDays?.(getNextNDays(currentDay, 4))}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-750 transition-colors cursor-pointer"
+                title={`Spesa per i prossimi 4 giorni partendo da oggi`}
+              >
+                4 giorni
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSelectedDays?.(["LUNEDI", "MARTEDI", "MERCOLEDI", "GIOVEDI", "VENERDI"])}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-750 transition-colors cursor-pointer"
+              >
+                Lun-Ven
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSelectedDays?.(["SABATO", "DOMENICA"])}
+                className="px-2 py-1 text-[11px] font-bold rounded-lg bg-stone-100 dark:bg-stone-800 text-stone-600 dark:text-stone-400 hover:text-stone-900 dark:hover:text-stone-200 hover:bg-stone-200 dark:hover:bg-stone-750 transition-colors cursor-pointer"
+              >
+                Weekend
+              </button>
+            </div>
+          </div>
+
+          {/* Selettore Singoli Giorni (Toggle individuale) */}
+          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+            {DAYS_INFO.map((d) => {
+              const isSelected = activeDays.includes(d.key);
+              const isToday = currentDay === d.key;
+
+              return (
+                <button
+                  key={d.key}
+                  type="button"
+                  onClick={() => onToggleDay?.(d.key)}
+                  className={`py-2 px-1 sm:px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer ${
+                    isSelected
+                      ? "bg-[#F7931E] text-white shadow-sm shadow-orange-500/25 scale-[1.01]"
+                      : "bg-stone-100 dark:bg-stone-800/80 text-stone-400 dark:text-stone-500 hover:bg-stone-200 dark:hover:bg-stone-750 hover:text-stone-700 dark:hover:text-stone-300"
+                  }`}
+                  title={`${d.label}: ${isSelected ? "Incluso nella spesa (clicca per rimuovere)" : "Escluso dalla spesa (clicca per aggiungere)"}`}
+                >
+                  <span className="truncate">{d.short}</span>
+                  {isToday ? (
+                    <span
+                      className={`text-[8.5px] px-1 rounded uppercase tracking-wider font-extrabold ${
+                        isSelected
+                          ? "bg-white/20 text-white"
+                          : "bg-orange-100 dark:bg-orange-950/80 text-orange-600 dark:text-orange-400"
+                      }`}
+                    >
+                      Oggi
+                    </span>
+                  ) : (
+                    <span className="text-[10px] leading-tight font-black opacity-80">
+                      {isSelected ? "✓" : "+"}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* SEZIONE 2: Moltiplicatore Settimane & Azioni */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           {/* Selettore N Settimane */}
           <div className="flex items-center gap-2">
@@ -150,8 +278,11 @@ export function ShoppingListView({
           <div className="flex items-center gap-2">
             <button
               onClick={handleCopyList}
+              disabled={activeDays.length === 0}
               className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm ${
-                copied
+                activeDays.length === 0
+                  ? "bg-stone-200 dark:bg-stone-800 text-stone-400 cursor-not-allowed"
+                  : copied
                   ? "bg-emerald-600 text-white"
                   : "bg-[#F7931E] hover:bg-[#ea580c] text-white shadow-orange-500/25"
               }`}
@@ -205,8 +336,27 @@ export function ShoppingListView({
         </div>
       </div>
 
-      {/* Raggruppamento per Reparto del Supermercato */}
-      {groups.length === 0 ? (
+      {/* Raggruppamento per Reparto del Supermercato o Stato Vuoto */}
+      {activeDays.length === 0 ? (
+        <div className="p-8 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-[#1a1a1e] rounded-2xl border border-stone-200 dark:border-stone-800 space-y-3">
+          <Calendar size={36} className="mx-auto opacity-40 text-[#F7931E]" />
+          <div>
+            <h4 className="text-sm font-bold text-stone-800 dark:text-stone-200">
+              Nessun giorno selezionato
+            </h4>
+            <p className="text-xs text-stone-500 dark:text-stone-400 mt-1">
+              Seleziona almeno un giorno della settimana o usa le scorciatoie in alto per calcolare la lista della spesa.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onSetSelectedDays?.(ALL_DAYS)}
+            className="px-4 py-2 text-xs font-bold rounded-xl bg-[#F7931E] hover:bg-[#ea580c] text-white transition-colors cursor-pointer shadow-sm"
+          >
+            Seleziona tutta la settimana
+          </button>
+        </div>
+      ) : groups.length === 0 ? (
         <div className="p-8 text-center text-stone-500 dark:text-stone-400 bg-white dark:bg-[#1a1a1e] rounded-2xl border border-stone-200 dark:border-stone-800">
           <ShoppingBag size={32} className="mx-auto mb-2 opacity-40 text-[#F7931E]" />
           Nessun ingrediente nella lista per le impostazioni selezionate.

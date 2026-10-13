@@ -4,6 +4,7 @@ import {
   convertUnit,
   formatAmountNumber,
   formatShoppingListAsText,
+  getNextNDays,
 } from "./shopping-list";
 import { SAMPLE_PLAN } from "@/data/sample-plan";
 import { MealSelection } from "@/types/diet";
@@ -207,5 +208,47 @@ describe("Shopping List Aggregator Logic", () => {
     expect(text).toContain("[ORTOFRUTTA]");
     expect(text).toContain("[BANCO FRIGO]");
     expect(text).toContain("Yogurt greco 0%");
+  });
+
+  it("calculates next N days cyclically with getNextNDays", () => {
+    expect(getNextNDays("LUNEDI", 3)).toEqual(["LUNEDI", "MARTEDI", "MERCOLEDI"]);
+    expect(getNextNDays("SABATO", 3)).toEqual(["SABATO", "DOMENICA", "LUNEDI"]);
+    expect(getNextNDays("DOMENICA", 2)).toEqual(["DOMENICA", "LUNEDI"]);
+    expect(getNextNDays("VENERDI", 4)).toEqual(["VENERDI", "SABATO", "DOMENICA", "LUNEDI"]);
+  });
+
+  it("aggregates only selected days when selectedDays option is provided", () => {
+    // Aggregation for only Monday and Tuesday
+    const twoDaysResult = aggregateShoppingList(SAMPLE_PLAN, {}, {
+      selectedDays: ["LUNEDI", "MARTEDI"],
+    });
+
+    expect(twoDaysResult.length).toBeGreaterThan(0);
+
+    // Monday has 170g Yogurt, Tuesday breakfast has 200ml latte (no yogurt)
+    const bancoFrigo = twoDaysResult.find((d) => d.department === "Banco Frigo");
+    const yogurt = bancoFrigo?.items.find((i) => i.name.includes("Yogurt greco 0%"));
+    expect(yogurt?.rawAmount).toBe(170); // Only Monday, not the whole week (830g)
+
+    // Wednesday lunch has salmone, which should NOT be in 2-days list
+    const pescheria = twoDaysResult.find((d) => d.department === "Pescheria");
+    const salmone = pescheria?.items.find((i) => i.name.includes("Salmone"));
+    expect(salmone).toBeUndefined();
+  });
+
+  it("returns empty list if selectedDays is an empty array", () => {
+    const emptyResult = aggregateShoppingList(SAMPLE_PLAN, {}, {
+      selectedDays: [],
+    });
+    expect(emptyResult).toEqual([]);
+  });
+
+  it("formats text title correctly when custom days are selected", () => {
+    const list = aggregateShoppingList(SAMPLE_PLAN, {}, {
+      selectedDays: ["LUNEDI", "MARTEDI", "MERCOLEDI"],
+    });
+    const text = formatShoppingListAsText(list, 1, ["LUNEDI", "MARTEDI", "MERCOLEDI"]);
+
+    expect(text).toContain("🛒 LISTA DELLA SPESA (3 giorni (Lun, Mar, Mer))");
   });
 });

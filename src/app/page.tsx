@@ -88,6 +88,7 @@ export default function HomePage() {
     weeksCount,
     addFixedVegetables,
     fixedVegetableGrams,
+    selectedShoppingDays,
     isOnline,
     setOption,
     toggleFreeMeal,
@@ -95,6 +96,8 @@ export default function HomePage() {
     setWeeksCount,
     setAddFixedVegetables,
     setFixedVegetableGrams,
+    setSelectedShoppingDays,
+    toggleShoppingDay,
     resetPurchased,
     updateCustomPlan,
     removePlan,
@@ -357,10 +360,14 @@ export default function HomePage() {
                   weeksCount={weeksCount}
                   addFixedVegetables={addFixedVegetables}
                   fixedVegetableGrams={fixedVegetableGrams}
+                  selectedDays={selectedShoppingDays}
+                  currentDay={todayKey}
                   onTogglePurchased={togglePurchased}
                   onResetPurchased={resetPurchased}
                   onSetWeeksCount={setWeeksCount}
                   onToggleFixedVegetables={setAddFixedVegetables}
+                  onToggleDay={toggleShoppingDay}
+                  onSetSelectedDays={setSelectedShoppingDays}
                 />
               </div>
             )}

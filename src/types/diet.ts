@@ -7,6 +7,16 @@ export type DayOfWeek =
   | "SABATO"
   | "DOMENICA";
 
+export const ALL_DAYS: DayOfWeek[] = [
+  "LUNEDI",
+  "MARTEDI",
+  "MERCOLEDI",
+  "GIOVEDI",
+  "VENERDI",
+  "SABATO",
+  "DOMENICA",
+];
+
 export type MealType =
   | "COLAZIONE"
   | "SPUNTINO_MATTINA"

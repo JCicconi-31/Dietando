@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { SAMPLE_PLAN } from "@/data/sample-plan";
-import { MealSelection, Plan } from "@/types/diet";
+import { MealSelection, Plan, DayOfWeek, ALL_DAYS } from "@/types/diet";
 
 export interface LocalDietState {
   plan: Plan | null;
@@ -11,6 +11,7 @@ export interface LocalDietState {
   weeksCount: number;
   addFixedVegetables: boolean;
   fixedVegetableGrams: number;
+  selectedShoppingDays: DayOfWeek[];
   isOnline: boolean;
   isInitialized: boolean;
   setOption: (dayOfWeek: string, mealType: string, optionId: string) => void;
@@ -19,6 +20,8 @@ export interface LocalDietState {
   setWeeksCount: (weeks: number) => void;
   setAddFixedVegetables: (enabled: boolean) => void;
   setFixedVegetableGrams: (grams: number) => void;
+  setSelectedShoppingDays: (days: DayOfWeek[]) => void;
+  toggleShoppingDay: (day: DayOfWeek) => void;
   resetPurchased: () => void;
   updateCustomPlan: (newPlan: Plan) => void;
   removePlan: () => void;
@@ -32,6 +35,7 @@ export function useDietStore(userId?: string | null): LocalDietState {
   const [weeksCount, setWeeksCountState] = useState<number>(1);
   const [addFixedVegetables, setAddFixedVegetablesState] = useState<boolean>(false);
   const [fixedVegetableGrams, setFixedVegetableGramsState] = useState<number>(200);
+  const [selectedShoppingDays, setSelectedShoppingDaysState] = useState<DayOfWeek[]>(ALL_DAYS);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [isInitialized, setIsInitialized] = useState<boolean>(false);
 
@@ -43,6 +47,7 @@ export function useDietStore(userId?: string | null): LocalDietState {
     weeks: `diet_weeks_${uid}`,
     veg: `diet_fixed_veg_${uid}`,
     vegGrams: `diet_fixed_veg_grams_${uid}`,
+    shoppingDays: `diet_shopping_days_${uid}`,
   }), []);
 
   // Caricamento iniziale dallo storage locale (strettamente isolato per userId)
@@ -107,6 +112,22 @@ export function useDietStore(userId?: string | null): LocalDietState {
       } else {
         setFixedVegetableGramsState(200);
       }
+
+      const savedShoppingDays = localStorage.getItem(keys.shoppingDays);
+      if (savedShoppingDays) {
+        try {
+          const parsedDays = JSON.parse(savedShoppingDays);
+          if (Array.isArray(parsedDays) && parsedDays.length > 0) {
+            setSelectedShoppingDaysState(parsedDays);
+          } else {
+            setSelectedShoppingDaysState(ALL_DAYS);
+          }
+        } catch {
+          setSelectedShoppingDaysState(ALL_DAYS);
+        }
+      } else {
+        setSelectedShoppingDaysState(ALL_DAYS);
+      }
     } catch (e) {
       console.warn("Impossibile leggere dallo storage locale:", e);
     }
@@ -142,10 +163,11 @@ export function useDietStore(userId?: string | null): LocalDietState {
       localStorage.setItem(keys.weeks, weeksCount.toString());
       localStorage.setItem(keys.veg, addFixedVegetables.toString());
       localStorage.setItem(keys.vegGrams, fixedVegetableGrams.toString());
+      localStorage.setItem(keys.shoppingDays, JSON.stringify(selectedShoppingDays));
     } catch (e) {
       console.warn("Impossibile salvare su storage locale:", e);
     }
-  }, [plan, selections, purchasedItems, weeksCount, addFixedVegetables, fixedVegetableGrams, isInitialized, userId, getKeys]);
+  }, [plan, selections, purchasedItems, weeksCount, addFixedVegetables, fixedVegetableGrams, selectedShoppingDays, isInitialized, userId, getKeys]);
 
   const setOption = (dayOfWeek: string, mealType: string, optionId: string) => {
     const key = `${dayOfWeek}_${mealType}`;
@@ -202,6 +224,23 @@ export function useDietStore(userId?: string | null): LocalDietState {
     setFixedVegetableGramsState(grams);
   };
 
+  const setSelectedShoppingDays = (days: DayOfWeek[]) => {
+    const sorted = ALL_DAYS.filter((d) => days.includes(d));
+    setSelectedShoppingDaysState(sorted);
+  };
+
+  const toggleShoppingDay = (day: DayOfWeek) => {
+    setSelectedShoppingDaysState((prev) => {
+      let next: DayOfWeek[];
+      if (prev.includes(day)) {
+        next = prev.filter((d) => d !== day);
+      } else {
+        next = [...prev, day];
+      }
+      return ALL_DAYS.filter((d) => next.includes(d));
+    });
+  };
+
   const updateCustomPlan = (newPlan: Plan) => {
     setPlan(newPlan);
     setSelections({});
@@ -217,6 +256,7 @@ export function useDietStore(userId?: string | null): LocalDietState {
       localStorage.removeItem(keys.plan);
       localStorage.removeItem(keys.selections);
       localStorage.removeItem(keys.purchased);
+      localStorage.removeItem(keys.shoppingDays);
     }
   };
 
@@ -233,6 +273,7 @@ export function useDietStore(userId?: string | null): LocalDietState {
     weeksCount,
     addFixedVegetables,
     fixedVegetableGrams,
+    selectedShoppingDays,
     isOnline,
     isInitialized,
     setOption,
@@ -241,6 +282,8 @@ export function useDietStore(userId?: string | null): LocalDietState {
     setWeeksCount,
     setAddFixedVegetables,
     setFixedVegetableGrams,
+    setSelectedShoppingDays,
+    toggleShoppingDay,
     resetPurchased,
     updateCustomPlan,
     removePlan,

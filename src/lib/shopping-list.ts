@@ -4,6 +4,8 @@ import {
   AggregatedShoppingItem,
   DepartmentShoppingGroup,
   IngredientCategory,
+  DayOfWeek,
+  ALL_DAYS,
 } from "@/types/diet";
 
 export interface AggregateOptions {
@@ -11,6 +13,21 @@ export interface AggregateOptions {
   addFixedVegetables?: boolean;
   fixedVegetableGrams?: number;
   purchasedItems?: Record<string, boolean>;
+  selectedDays?: DayOfWeek[];
+}
+
+/**
+ * Calcola la sequenza ciclica dei prossimi N giorni a partire da un giorno dato
+ */
+export function getNextNDays(startDay: DayOfWeek, count: number): DayOfWeek[] {
+  const safeCount = Math.max(1, Math.min(count, ALL_DAYS.length));
+  const startIndex = ALL_DAYS.indexOf(startDay);
+  const baseIndex = startIndex >= 0 ? startIndex : 0;
+  const result: DayOfWeek[] = [];
+  for (let i = 0; i < safeCount; i++) {
+    result.push(ALL_DAYS[(baseIndex + i) % ALL_DAYS.length]);
+  }
+  return result;
 }
 
 // Ordine standard dei reparti del supermercato per la spesa
@@ -89,6 +106,7 @@ export function aggregateShoppingList(
   const addFixedVegetables = options.addFixedVegetables ?? false;
   const fixedVegetableGrams = options.fixedVegetableGrams ?? 200;
   const purchasedItems = options.purchasedItems || {};
+  const selectedDays = options.selectedDays;
 
   // Mappa temporanea: itemKey -> AggregatedShoppingItem accumulatore
   const accumulator = new Map<
@@ -104,6 +122,10 @@ export function aggregateShoppingList(
 
   // Itera sui giorni del piano
   for (const day of plan.days) {
+    // Se è attivo un filtro giorni e il giorno corrente non è selezionato, salta
+    if (selectedDays && !selectedDays.includes(day.dayOfWeek)) {
+      continue;
+    }
     for (const meal of day.meals) {
       const selectionKey = `${day.dayOfWeek}_${meal.mealType}`;
       const selection = selections[selectionKey];
@@ -223,15 +245,35 @@ export function aggregateShoppingList(
   return sortedDepartments;
 }
 
+const DAY_SHORT_NAMES: Record<DayOfWeek, string> = {
+  LUNEDI: "Lun",
+  MARTEDI: "Mar",
+  MERCOLEDI: "Mer",
+  GIOVEDI: "Gio",
+  VENERDI: "Ven",
+  SABATO: "Sab",
+  DOMENICA: "Dom",
+};
+
 /**
  * Genera il testo formattato da copiare negli appunti con il pulsante "Copia lista"
  */
 export function formatShoppingListAsText(
   groups: DepartmentShoppingGroup[],
-  weeksCount: number = 1
+  weeksCount: number = 1,
+  selectedDays?: DayOfWeek[]
 ): string {
-  const weeksLabel = weeksCount === 1 ? "1 settimana" : `${weeksCount} settimane`;
-  const lines: string[] = [`🛒 LISTA DELLA SPESA (${weeksLabel})`, ""];
+  const isFullWeek = !selectedDays || selectedDays.length === ALL_DAYS.length;
+  let subtitle = "";
+
+  if (!isFullWeek && selectedDays && selectedDays.length > 0) {
+    const daysStr = selectedDays.map((d) => DAY_SHORT_NAMES[d] || d).join(", ");
+    subtitle = `${selectedDays.length} giorni (${daysStr})${weeksCount > 1 ? ` • ${weeksCount} sett.` : ""}`;
+  } else {
+    subtitle = weeksCount === 1 ? "1 settimana" : `${weeksCount} settimane`;
+  }
+
+  const lines: string[] = [`🛒 LISTA DELLA SPESA (${subtitle})`, ""];
 
   for (const group of groups) {
     if (group.items.length === 0) continue;
