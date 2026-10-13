@@ -1,4 +1,4 @@
-const CACHE_NAME = "diet-organizer-v4";
+const CACHE_NAME = "diet-organizer-v5";
 const PRECACHE_ASSETS = [
   "/manifest.json",
   "/icons/icon-192.png",
@@ -41,10 +41,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
-  // Non intercettare route API, HMR di sviluppo o WebSocket
+  // CRITICO: Non intercettare mai le route API, i chunk di Next.js (/_next/), HMR o WebSocket
   if (
     url.pathname.startsWith("/api/") ||
-    url.pathname.includes("_next/webpack-hmr") ||
+    url.pathname.startsWith("/_next/") ||
     url.protocol === "ws:" ||
     url.protocol === "wss:"
   ) {

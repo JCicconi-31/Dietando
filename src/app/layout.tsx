@@ -34,10 +34,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="it" suppressHydrationWarning className="h-full">
-      <head>
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      <body className="min-h-full flex flex-col transition-colors duration-200">
         <script
           dangerouslySetInnerHTML={{
             __html: `(function() {
@@ -48,15 +45,12 @@ export default function RootLayout({
                 } else if (savedTheme === 'light') {
                   document.documentElement.classList.remove('dark');
                 } else {
-                  // Default to light if not explicitly set
                   document.documentElement.classList.remove('dark');
                 }
               } catch(e) {}
             })();`,
           }}
         />
-      </head>
-      <body className="min-h-full flex flex-col transition-colors duration-200">
         <PwaRegister />
         {children}
       </body>
