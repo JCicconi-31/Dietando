@@ -125,6 +125,26 @@ export default function HomePage() {
     setSelectedDay(today);
   }, []);
 
+  // Conteggio articoli rimanenti nella lista spesa per badge mobile (DEVE stare prima di ogni return per rispettare le regole degli Hooks)
+  const unpurchasedCount = useMemo(() => {
+    if (!plan) return 0;
+    try {
+      const groups = aggregateShoppingList(plan, selections, {
+        weeksCount,
+        addFixedVegetables,
+        fixedVegetableGrams,
+        purchasedItems,
+        selectedDays: selectedShoppingDays,
+      });
+      return groups.reduce(
+        (acc, group) => acc + group.items.filter((item) => !item.isPurchased).length,
+        0
+      );
+    } catch {
+      return 0;
+    }
+  }, [plan, selections, weeksCount, addFixedVegetables, fixedVegetableGrams, selectedShoppingDays, purchasedItems]);
+
   // Mostra schermata di caricamento durante il check sessione
   if (isAuthLoading) {
     return (
@@ -166,26 +186,6 @@ export default function HomePage() {
 
   const todayLabel = DAYS_INFO.find((d) => d.key === todayKey)?.label || "Oggi";
   const selectedDayLabel = DAYS_INFO.find((d) => d.key === selectedDay)?.label || "Lunedì";
-
-  // Conteggio articoli rimanenti nella lista spesa per badge mobile
-  const unpurchasedCount = useMemo(() => {
-    if (!plan) return 0;
-    try {
-      const groups = aggregateShoppingList(plan, selections, {
-        weeksCount,
-        addFixedVegetables,
-        fixedVegetableGrams,
-        purchasedItems,
-        selectedDays: selectedShoppingDays,
-      });
-      return groups.reduce(
-        (acc, group) => acc + group.items.filter((item) => !item.isPurchased).length,
-        0
-      );
-    } catch {
-      return 0;
-    }
-  }, [plan, selections, weeksCount, addFixedVegetables, fixedVegetableGrams, selectedShoppingDays, purchasedItems]);
 
   const handleDeleteAllData = () => {
     if (currentUser) {
