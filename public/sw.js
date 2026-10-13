@@ -1,4 +1,4 @@
-const CACHE_NAME = "diet-organizer-v3";
+const CACHE_NAME = "diet-organizer-v4";
 const PRECACHE_ASSETS = [
   "/manifest.json",
   "/icons/icon-192.png",
@@ -102,20 +102,30 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // 2. Per risorse statiche: Cache-first con aggiornamento in background (Stale-While-Revalidate)
+  // 2. Per risorse statiche: Stale-While-Revalidate sicuro
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      const fetchPromise = fetch(event.request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
+      if (cachedResponse) {
+        // Se in cache, restituisci subito e aggiorna in background
+        fetch(event.request)
+          .then((networkResponse) => {
+            if (networkResponse && networkResponse.status === 200) {
+              const clone = networkResponse.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+            }
+          })
+          .catch(() => {});
+        return cachedResponse;
+      }
 
-      return cachedResponse || fetchPromise;
+      // Se non in cache, preleva dalla rete e salva in cache
+      return fetch(event.request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        }
+        return networkResponse;
+      });
     })
   );
 });
