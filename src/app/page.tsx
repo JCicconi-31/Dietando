@@ -18,10 +18,12 @@ import { ShoppingListView } from "@/components/ShoppingListView";
 import { ImportJsonModal } from "@/components/ImportJsonModal";
 import { PrivacyModal } from "@/components/PrivacyModal";
 import { AccountModal } from "@/components/AccountModal";
+import { InstallAppModal } from "@/components/InstallAppModal";
 import { AuthScreen } from "@/components/AuthScreen";
 import { EmptyPlanState } from "@/components/EmptyPlanState";
 import { validateDietRules } from "@/lib/rules-validator";
 import { useDietStore } from "@/lib/client-store";
+import { usePwaInstall } from "@/hooks/usePwaInstall";
 import { getCurrentAuthUser, logoutUser, deleteUserAccount, AuthUser } from "@/lib/client-auth";
 import { DayOfWeek } from "@/types/diet";
 
@@ -110,6 +112,10 @@ export default function HomePage() {
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
   const [isImportJsonOpen, setIsImportJsonOpen] = useState(false);
+  const [isInstallOpen, setIsInstallOpen] = useState(false);
+
+  // Gestione installazione PWA per Android e mobile
+  const { isInstallable, isStandalone, triggerInstall, hasNativePrompt } = usePwaInstall();
 
   useEffect(() => {
     const today = getCurrentDayOfWeek();
@@ -134,11 +140,22 @@ export default function HomePage() {
   // 1. Se non autenticato, mostra obbligatoriamente la schermata di login / registrazione
   if (!currentUser) {
     return (
-      <AuthScreen
-        onAuthenticated={(user) => setCurrentUser(user)}
-        isDark={isDark}
-        onToggleTheme={toggleTheme}
-      />
+      <>
+        <AuthScreen
+          onAuthenticated={(user) => setCurrentUser(user)}
+          isDark={isDark}
+          onToggleTheme={toggleTheme}
+          onOpenInstall={() => setIsInstallOpen(true)}
+          isStandalone={isStandalone}
+        />
+        <InstallAppModal
+          isOpen={isInstallOpen}
+          onClose={() => setIsInstallOpen(false)}
+          hasNativePrompt={hasNativePrompt}
+          isStandalone={isStandalone}
+          onNativeInstall={triggerInstall}
+        />
+      </>
     );
   }
 
@@ -162,6 +179,8 @@ export default function HomePage() {
         isOnline={isOnline}
         onOpenPrivacy={() => setIsPrivacyOpen(true)}
         onOpenAccount={() => setIsAccountOpen(true)}
+        onOpenInstall={() => setIsInstallOpen(true)}
+        isStandalone={isStandalone}
         onLogout={handleLogout}
         currentUserName={currentUser.name}
         isDark={isDark}
@@ -478,6 +497,15 @@ export default function HomePage() {
         onDeleteAccount={handleDeleteAccount}
         onResetPlan={removePlan}
         hasActivePlan={!!plan}
+        onOpenInstall={() => setIsInstallOpen(true)}
+      />
+
+      <InstallAppModal
+        isOpen={isInstallOpen}
+        onClose={() => setIsInstallOpen(false)}
+        hasNativePrompt={hasNativePrompt}
+        isStandalone={isStandalone}
+        onNativeInstall={triggerInstall}
       />
     </div>
   );

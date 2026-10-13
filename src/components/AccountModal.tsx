@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { X, LogOut, Trash2, User, ShieldCheck, RefreshCw } from "lucide-react";
+import { X, LogOut, Trash2, User, ShieldCheck, RefreshCw, Smartphone } from "lucide-react";
 import { AuthUser } from "@/lib/client-auth";
 
 interface AccountModalProps {
@@ -12,6 +12,7 @@ interface AccountModalProps {
   onDeleteAccount: () => void;
   onResetPlan?: () => void;
   hasActivePlan?: boolean;
+  onOpenInstall?: () => void;
 }
 
 export function AccountModal({
@@ -22,6 +23,7 @@ export function AccountModal({
   onDeleteAccount,
   onResetPlan,
   hasActivePlan,
+  onOpenInstall,
 }: AccountModalProps) {
   if (!isOpen || !currentUser) return null;
 
@@ -68,6 +70,25 @@ export function AccountModal({
 
         {/* Azioni Account */}
         <div className="space-y-2 pt-1">
+          {/* Installa su Android / Mobile */}
+          {onOpenInstall && (
+            <button
+              onClick={() => {
+                onOpenInstall();
+                onClose();
+              }}
+              className="w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-between bg-orange-50 dark:bg-orange-950/30 hover:bg-orange-100 dark:hover:bg-orange-900/40 text-[#ea580c] dark:text-orange-400 border border-orange-200 dark:border-orange-900/50 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <Smartphone size={15} />
+                <span>Scarica / Installa app su Android</span>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-orange-200/60 dark:bg-orange-900/80 px-2 py-0.5 rounded-full">
+                PWA
+              </span>
+            </button>
+          )}
+
           {/* Rimuovi / Cambia Piano se presente */}
           {hasActivePlan && onResetPlan && (
             <button

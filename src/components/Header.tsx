@@ -1,12 +1,14 @@
 "use client";
 
 import React from "react";
-import { Moon, Sun, WifiOff, ShieldCheck, User, LogOut } from "lucide-react";
+import { Moon, Sun, WifiOff, ShieldCheck, User, LogOut, Smartphone } from "lucide-react";
 
 interface HeaderProps {
   isOnline: boolean;
   onOpenPrivacy: () => void;
   onOpenAccount: () => void;
+  onOpenInstall?: () => void;
+  isStandalone?: boolean;
   onLogout?: () => void;
   currentUserName?: string;
   isDark: boolean;
@@ -17,6 +19,8 @@ export function Header({
   isOnline,
   onOpenPrivacy,
   onOpenAccount,
+  onOpenInstall,
+  isStandalone = false,
   onLogout,
   currentUserName = "Utente",
   isDark,
@@ -58,6 +62,18 @@ export function Header({
               <WifiOff size={12} />
               Modalità Offline
             </div>
+          )}
+          
+          {/* Pulsante Scarica / Installa App (Mobile / Android / PWA) */}
+          {onOpenInstall && !isStandalone && (
+            <button
+              onClick={onOpenInstall}
+              title="Installa l'applicazione su Android / Telefono"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-orange-500/10 to-amber-500/15 dark:from-orange-500/20 dark:to-amber-500/20 text-[#ea580c] dark:text-orange-400 border border-orange-200 dark:border-orange-900/60 hover:bg-orange-100/80 dark:hover:bg-orange-950/40 transition-all cursor-pointer shadow-xs"
+            >
+              <Smartphone size={15} className="shrink-0 text-[#ea580c] dark:text-orange-400" />
+              <span className="font-bold">Scarica App</span>
+            </button>
           )}
 
           {/* Privacy Button */}

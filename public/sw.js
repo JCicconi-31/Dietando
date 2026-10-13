@@ -1,5 +1,11 @@
-const CACHE_NAME = "diet-organizer-cache-v1";
-const STATIC_ASSETS = ["/", "/manifest.json", "/favicon.ico"];
+const CACHE_NAME = "diet-organizer-cache-v2";
+const STATIC_ASSETS = [
+  "/",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/icon.svg"
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -29,10 +35,26 @@ self.addEventListener("fetch", (event) => {
   // Ignora le richieste non-GET
   if (event.request.method !== "GET") return;
 
+  const url = new URL(event.request.url);
+
+  // Non memorizzare in cache WebSocket, HMR di sviluppo o route API
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.pathname.includes("_next/webpack-hmr") ||
+    url.protocol === "ws:" ||
+    url.protocol === "wss:"
+  ) {
+    return;
+  }
+
   event.respondWith(
     fetch(event.request)
       .then((networkResponse) => {
-        if (networkResponse && networkResponse.status === 200) {
+        if (
+          networkResponse &&
+          networkResponse.status === 200 &&
+          networkResponse.type === "basic"
+        ) {
           const responseToCache = networkResponse.clone();
           caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);

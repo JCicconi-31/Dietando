@@ -9,7 +9,12 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   icons: {
     icon: "/favicon.ico",
-    apple: "/icons/icon-192.png",
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Dieta",
   },
 };
 

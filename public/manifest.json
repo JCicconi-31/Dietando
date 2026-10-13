@@ -1,17 +1,46 @@
 {
+  "$schema": "https://json.schemastore.org/web-manifest-combined.json",
   "name": "Organizzatore Dieta",
   "short_name": "Dieta",
-  "description": "Trasforma il piano alimentare del nutrizionista in uno strumento d'uso quotidiano: pasti, lista spesa e regole.",
+  "description": "Trasforma il piano alimentare del nutrizionista in uno strumento d'uso quotidiano: pasti, lista spesa aggregata e regole.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait-primary",
   "background_color": "#ffffff",
   "theme_color": "#F7931E",
+  "categories": ["health", "lifestyle", "food"],
   "icons": [
     {
-      "src": "/icons/icon.svg",
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "any"
     }
   ]
 }

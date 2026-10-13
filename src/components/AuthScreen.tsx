@@ -1,16 +1,24 @@
 "use client";
 
 import React, { useState } from "react";
-import { Lock, Mail, User, Sparkles, AlertCircle, ArrowRight, ShieldCheck, Sun, Moon } from "lucide-react";
+import { Lock, Mail, User, Sparkles, AlertCircle, ArrowRight, ShieldCheck, Sun, Moon, Smartphone } from "lucide-react";
 import { loginUser, registerUser, AuthUser } from "@/lib/client-auth";
 
 interface AuthScreenProps {
   onAuthenticated: (user: AuthUser) => void;
   isDark: boolean;
   onToggleTheme: () => void;
+  onOpenInstall?: () => void;
+  isStandalone?: boolean;
 }
 
-export function AuthScreen({ onAuthenticated, isDark, onToggleTheme }: AuthScreenProps) {
+export function AuthScreen({
+  onAuthenticated,
+  isDark,
+  onToggleTheme,
+  onOpenInstall,
+  isStandalone = false,
+}: AuthScreenProps) {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [emailOrName, setEmailOrName] = useState("");
   const [registerName, setRegisterName] = useState("");
@@ -70,13 +78,26 @@ export function AuthScreen({ onAuthenticated, isDark, onToggleTheme }: AuthScree
           </span>
         </div>
 
-        <button
-          onClick={onToggleTheme}
-          title={isDark ? "Tema chiaro" : "Tema scuro"}
-          className="p-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800 transition-colors"
-        >
-          {isDark ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} />}
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenInstall && !isStandalone && (
+            <button
+              onClick={onOpenInstall}
+              type="button"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-orange-50 dark:bg-orange-950/40 text-[#ea580c] dark:text-orange-400 border border-orange-200 dark:border-orange-900/60 hover:bg-orange-100 transition-colors cursor-pointer"
+            >
+              <Smartphone size={14} />
+              <span>Scarica App</span>
+            </button>
+          )}
+
+          <button
+            onClick={onToggleTheme}
+            title={isDark ? "Tema chiaro" : "Tema scuro"}
+            className="p-2 rounded-xl text-stone-600 dark:text-stone-300 hover:bg-stone-200/60 dark:hover:bg-stone-800 transition-colors"
+          >
+            {isDark ? <Sun size={19} className="text-amber-400" /> : <Moon size={19} />}
+          </button>
+        </div>
       </div>
 
       {/* Main Card */}
