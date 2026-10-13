@@ -141,13 +141,43 @@ export function useDietStore(userId?: string | null): LocalDietState {
     window.addEventListener("offline", handleOffline);
     setIsInitialized(true);
 
+    // Sincronizzazione multi-device cloud (PC <-> Telefono)
+    if (userId) {
+      fetch(`/api/diet/data?userId=${encodeURIComponent(userId)}`)
+        .then((res) => res.json())
+        .then((res) => {
+          if (res.success && res.data) {
+            const remote = res.data;
+            if (remote.plan) {
+              setPlan(remote.plan);
+              localStorage.setItem(keys.plan, JSON.stringify(remote.plan));
+            }
+            if (remote.selections && Object.keys(remote.selections).length > 0) {
+              setSelections(remote.selections);
+              localStorage.setItem(keys.selections, JSON.stringify(remote.selections));
+            }
+            if (remote.purchased) {
+              setPurchasedItems(remote.purchased);
+              localStorage.setItem(keys.purchased, JSON.stringify(remote.purchased));
+            }
+            if (remote.settings) {
+              if (remote.settings.weeksCount) setWeeksCountState(remote.settings.weeksCount);
+              if (remote.settings.addFixedVegetables !== undefined) setAddFixedVegetablesState(remote.settings.addFixedVegetables);
+              if (remote.settings.fixedVegetableGrams) setFixedVegetableGramsState(remote.settings.fixedVegetableGrams);
+              if (remote.settings.selectedShoppingDays) setSelectedShoppingDaysState(remote.settings.selectedShoppingDays);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
     };
   }, [userId, getKeys]);
 
-  // Salvataggio persistente ad ogni mutazione
+  // Salvataggio persistente ad ogni mutazione (locale + cloud debounced)
   useEffect(() => {
     if (!isInitialized || typeof window === "undefined" || !userId) return;
     const keys = getKeys(userId);
@@ -167,6 +197,28 @@ export function useDietStore(userId?: string | null): LocalDietState {
     } catch (e) {
       console.warn("Impossibile salvare su storage locale:", e);
     }
+
+    // Sync cloud debounced a PostgreSQL
+    const syncTimer = setTimeout(() => {
+      fetch("/api/diet/data", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId,
+          plan,
+          selections,
+          purchased: purchasedItems,
+          settings: {
+            weeksCount,
+            addFixedVegetables,
+            fixedVegetableGrams,
+            selectedShoppingDays,
+          },
+        }),
+      }).catch(() => {});
+    }, 1200);
+
+    return () => clearTimeout(syncTimer);
   }, [plan, selections, purchasedItems, weeksCount, addFixedVegetables, fixedVegetableGrams, selectedShoppingDays, isInitialized, userId, getKeys]);
 
   const setOption = (dayOfWeek: string, mealType: string, optionId: string) => {

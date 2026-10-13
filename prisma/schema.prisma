@@ -20,6 +20,18 @@ model User {
   weekMenus    WeekMenu[]
   ingredients  Ingredient[]
   settings     UserSettings?
+  dietData     UserDietData?
+}
+
+model UserDietData {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planData   String?  @db.Text
+  selections String?  @db.Text
+  purchased  String?  @db.Text
+  settings   String?  @db.Text
+  updatedAt  DateTime @updatedAt
 }
 
 model UserSettings {
