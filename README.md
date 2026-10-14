@@ -163,3 +163,12 @@ Verifica che tutti i **37 test** (isolamento account utente, validatore di regol
 ### Test 6: Funzionamento Offline & PWA
 1. Apri i DevTools del browser (`F12`), vai nella tab **Network** e imposta la velocità su **Offline**.
 2. Ricarica la pagina: l'app continua a caricarsi e funzionare regolarmente grazie al Service Worker e alla persistenza locale.
+
+---
+
+## 📄 Licenza & Esclusione di Responsabilità
+
+Questo progetto è rilasciato sotto licenza open-source **[MIT License](LICENSE)** con clausola esplicita di limitazione ed esenzione da qualsiasi responsabilità.
+
+> **AS IS / NESSUNA RESPONSABILITÀ SANITARIA O LEGALE:**  
+> Il software viene fornito "così com'è" (*AS IS*), senza garanzie di alcun tipo. L'autore declina espressamente qualsiasi responsabilità diretta o indiretta per danni alla salute, esiti nutrizionali avversi o errori nei dati importati. Per consultare il testo integrale, visionare il file [LICENSE](LICENSE).
