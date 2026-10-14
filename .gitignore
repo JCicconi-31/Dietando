@@ -10,14 +10,18 @@
 
 # Test & Coverage
 /coverage
+/.nyc_output
 
-# Next.js Build
+# Next.js Build & Cache
 /.next/
 /out/
 /build
+/dist
+/.turbo
 
 # File di ambiente (esclude tutti i .env tranne .env.example)
 .env
+.env*.local
 .env.local
 .env.development.local
 .env.test.local
@@ -37,15 +41,33 @@ next-env.d.ts
 *.db
 *.db-journal
 
+# Editor & IDE
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
 # File di sistema e log
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+[Dd]esktop.ini
 *.pem
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# File temporanei
+# Documenti / PDF / File temporanei
+*.pdf
 *.log
 scratch/
+.gemini/
