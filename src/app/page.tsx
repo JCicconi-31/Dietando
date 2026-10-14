@@ -10,10 +10,13 @@ import {
   ArrowRight,
   Info,
   Trash2,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Header } from "@/components/Header";
 import { DaySelector, getCurrentDayOfWeek, DAYS_INFO } from "@/components/DaySelector";
 import { MealCard } from "@/components/MealCard";
+import { DietBanner } from "@/components/DietBanner";
 import { ShoppingListView } from "@/components/ShoppingListView";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
 import { ImportJsonModal } from "@/components/ImportJsonModal";
@@ -118,6 +121,30 @@ export default function HomePage() {
   const [isImportJsonOpen, setIsImportJsonOpen] = useState(false);
   const [isInstallOpen, setIsInstallOpen] = useState(false);
 
+  // Filtri e gestione visualizzazione pasti per mobile
+  const [todayMealFilter, setTodayMealFilter] = useState<string>("ALL");
+  const [weekMealFilter, setWeekMealFilter] = useState<string>("ALL");
+  const [expandedMeals, setExpandedMeals] = useState<Record<string, boolean>>({});
+
+  const isMealExpanded = (mealKey: string, defaultExpanded: boolean = true) => {
+    return expandedMeals[mealKey] !== undefined ? expandedMeals[mealKey] : defaultExpanded;
+  };
+
+  const toggleMealExpanded = (mealKey: string, currentVal: boolean = true) => {
+    setExpandedMeals((prev) => ({
+      ...prev,
+      [mealKey]: !isMealExpanded(mealKey, currentVal),
+    }));
+  };
+
+  const setAllMealsExpanded = (mealKeys: string[], expanded: boolean) => {
+    const nextState: Record<string, boolean> = {};
+    mealKeys.forEach((key) => {
+      nextState[key] = expanded;
+    });
+    setExpandedMeals((prev) => ({ ...prev, ...nextState }));
+  };
+
   // Gestione installazione PWA per Android e mobile
   const { isInstallable, isStandalone, triggerInstall, hasNativePrompt } = usePwaInstall();
 
@@ -212,7 +239,7 @@ export default function HomePage() {
       />
 
       {/* Main Content Container con safe padding per bottom nav */}
-      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-4 py-3 sm:py-5 space-y-4 sm:space-y-5 pb-24 md:pb-12">
+      <main className="flex-1 max-w-4xl w-full mx-auto px-3 sm:px-4 py-2.5 sm:py-5 space-y-3 sm:space-y-5 pb-24 md:pb-12">
         {/* Caso 3: Nessun piano presente per questo utente -> Schermata di avviso inserimento */}
         {!plan ? (
           <EmptyPlanState
@@ -222,48 +249,13 @@ export default function HomePage() {
           />
         ) : (
           <>
-            {/* Banner Titolo Piano Attivo (Compatto su Mobile) */}
-            <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-transparent dark:from-orange-500/20 dark:via-amber-500/10 p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-orange-200/50 dark:border-orange-900/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5 sm:gap-3">
-              <div className="min-w-0">
-                <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-bold text-[#ea580c] dark:text-orange-400 uppercase tracking-wider mb-0.5">
-                  <Sparkles size={13} /> Piano Nutrizionale
-                </div>
-                <h2 className="text-base sm:text-xl font-black text-stone-900 dark:text-stone-100 truncate">
-                  {plan.title}
-                </h2>
-                <p className="text-xs text-stone-600 dark:text-stone-400 mt-0.5 line-clamp-1">
-                  {plan.notes || "Nessuna nota aggiuntiva."}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-1.5 sm:gap-2 w-full sm:w-auto justify-end shrink-0 pt-1 sm:pt-0 border-t border-orange-200/30 sm:border-0">
-                <button
-                  onClick={() => setIsImportJsonOpen(true)}
-                  className="text-xs font-bold px-3 py-1.5 sm:py-2 rounded-xl bg-[#F7931E] hover:bg-[#ea580c] text-white transition-all flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
-                >
-                  <Sparkles size={13} />
-                  <span>Importa JSON</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab("REGOLE")}
-                  className="hidden md:flex text-xs font-semibold px-3 py-2 rounded-xl bg-white dark:bg-[#202025] border border-orange-200 dark:border-orange-850 hover:bg-orange-50 dark:hover:bg-orange-950/40 text-[#ea580c] dark:text-orange-400 transition-colors items-center gap-1.5 cursor-pointer"
-                >
-                  <ClipboardList size={14} />
-                  <span>{plan.rules?.length || 0} Regole</span>
-                </button>
-                <button
-                  onClick={() => {
-                    if (window.confirm("Vuoi rimuovere questo piano alimentare?")) {
-                      removePlan();
-                    }
-                  }}
-                  title="Rimuovi questo piano"
-                  className="text-xs font-semibold p-1.5 sm:p-2 rounded-xl bg-white dark:bg-[#202025] border border-stone-200 dark:border-stone-800 hover:bg-rose-50 dark:hover:bg-rose-950/30 text-stone-400 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer active:scale-95"
-                >
-                  <Trash2 size={15} />
-                </button>
-              </div>
-            </div>
+            {/* Banner Titolo Piano Attivo: Ultra-compatto su Mobile con opzione dettagli a comparsa */}
+            <DietBanner
+              plan={plan}
+              onOpenImport={() => setIsImportJsonOpen(true)}
+              onOpenRules={() => setActiveTab("REGOLE")}
+              onRemovePlan={removePlan}
+            />
 
             {/* Tab Navigation per Desktop (su smartphone è attiva la dock bar in basso) */}
             <div className="hidden md:flex items-center bg-stone-200/70 dark:bg-[#1c1c20] p-1.5 rounded-2xl gap-1">
@@ -322,97 +314,226 @@ export default function HomePage() {
             </div>
 
             {/* TAB 1: PRIORITÀ OGGI */}
-            {activeTab === "OGGI" && (
-              <div className="space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 flex items-center gap-2">
-                      <span>Menu di Oggi ({todayLabel})</span>
-                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400">
-                        In tempo reale
-                      </span>
-                    </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">
-                      Visualizza o cambia al volo l&apos;opzione che desideri mangiare oggi.
-                    </p>
+            {activeTab === "OGGI" && (() => {
+              const todayMeals = todayDayPlan?.meals || [];
+              const todayMealKeys = todayMeals.map((m) => `${todayKey}_${m.id}`);
+              const areAllTodayExpanded = todayMeals.length > 0 && todayMeals.every((m) => isMealExpanded(`${todayKey}_${m.id}`, true));
+              const filteredTodayMeals = todayMealFilter === "ALL"
+                ? todayMeals
+                : todayMeals.filter((m) => m.mealType === todayMealFilter || m.id === todayMealFilter);
+
+              return (
+                <div className="space-y-3 sm:space-y-4 animate-fade-in">
+                  {/* Intestazione Sezione & Filtri Pasto Rapidi */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 flex items-center gap-1.5 truncate">
+                          <span>Menu di Oggi</span>
+                          <span className="text-xs font-bold text-[#ea580c] dark:text-orange-400">({todayLabel})</span>
+                        </h3>
+                        <span className="hidden sm:inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 shrink-0">
+                          In tempo reale
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setAllMealsExpanded(todayMealKeys, !areAllTodayExpanded)}
+                          className="text-[11px] sm:text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-[#ea580c] flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200/60 dark:border-stone-800 cursor-pointer active:scale-95"
+                          title={areAllTodayExpanded ? "Riduci tutte le schede dei pasti" : "Espandi tutte le schede dei pasti"}
+                        >
+                          {areAllTodayExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                          <span>{areAllTodayExpanded ? "Comprimi tutti" : "Espandi tutti"}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedDay(todayKey);
+                            setActiveTab("SETTIMANA");
+                          }}
+                          className="hidden sm:flex text-xs font-semibold text-[#F7931E] hover:underline items-center gap-1 cursor-pointer"
+                        >
+                          <span>Vedi settimana</span> <ArrowRight size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filtri Rapidi Pasti (Pillole orizzontali) */}
+                    {todayMeals.length > 1 && (
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setTodayMealFilter("ALL")}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer active:scale-95 ${
+                            todayMealFilter === "ALL"
+                              ? "bg-[#F7931E] text-white shadow-xs"
+                              : "bg-white dark:bg-[#1a1a1e] text-stone-600 dark:text-stone-400 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50"
+                          }`}
+                        >
+                          Tutti ({todayMeals.length})
+                        </button>
+                        {todayMeals.map((meal) => {
+                          const isSelected = todayMealFilter === meal.mealType || todayMealFilter === meal.id;
+                          return (
+                            <button
+                              key={meal.id}
+                              type="button"
+                              onClick={() => {
+                                const nextFilter = isSelected ? "ALL" : meal.mealType;
+                                setTodayMealFilter(nextFilter);
+                                setExpandedMeals((prev) => ({ ...prev, [`${todayKey}_${meal.id}`]: true }));
+                              }}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                                isSelected
+                                  ? "bg-[#F7931E] text-white shadow-xs font-bold"
+                                  : "bg-white dark:bg-[#1a1a1e] text-stone-600 dark:text-stone-400 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50"
+                              }`}
+                            >
+                              <span>{meal.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedDay(todayKey);
-                      setActiveTab("SETTIMANA");
-                    }}
-                    className="text-xs font-semibold text-[#F7931E] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>Vedi settimana</span> <ArrowRight size={13} />
-                  </button>
+                  {/* Pasti di Oggi */}
+                  <div className="space-y-2.5 sm:space-y-3">
+                    {filteredTodayMeals.map((meal) => {
+                      const mealKey = `${todayKey}_${meal.id}`;
+                      return (
+                        <MealCard
+                          key={meal.id}
+                          meal={meal}
+                          dayOfWeek={todayKey}
+                          selection={selections[`${todayKey}_${meal.mealType}`]}
+                          addFixedVegetables={addFixedVegetables}
+                          fixedVegetableGrams={fixedVegetableGrams}
+                          onSelectOption={(optId) => setOption(todayKey, meal.mealType, optId)}
+                          onToggleFreeMeal={() => toggleFreeMeal(todayKey, meal.mealType)}
+                          onAddCustomOption={(data) => addCustomOption(todayKey, meal.mealType, data)}
+                          onRemoveCustomOption={(optId) => removeCustomOption(todayKey, meal.mealType, optId)}
+                          isExpanded={isMealExpanded(mealKey, true)}
+                          onToggleExpand={() => toggleMealExpanded(mealKey, true)}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-
-                {/* Pasti di Oggi */}
-                <div className="space-y-3">
-                  {todayDayPlan?.meals.map((meal) => (
-                    <MealCard
-                      key={meal.id}
-                      meal={meal}
-                      dayOfWeek={todayKey}
-                      selection={selections[`${todayKey}_${meal.mealType}`]}
-                      addFixedVegetables={addFixedVegetables}
-                      fixedVegetableGrams={fixedVegetableGrams}
-                      onSelectOption={(optId) => setOption(todayKey, meal.mealType, optId)}
-                      onToggleFreeMeal={() => toggleFreeMeal(todayKey, meal.mealType)}
-                      onAddCustomOption={(data) => addCustomOption(todayKey, meal.mealType, data)}
-                      onRemoveCustomOption={(optId) => removeCustomOption(todayKey, meal.mealType, optId)}
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* TAB 2: MENU DELLA SETTIMANA */}
-            {activeTab === "SETTIMANA" && (
-              <div className="space-y-4 animate-fade-in">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  <div>
-                    <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">
-                      Menu della Settimana: {selectedDayLabel}
+            {activeTab === "SETTIMANA" && (() => {
+              const weekMeals = activeDayPlan?.meals || [];
+              const weekMealKeys = weekMeals.map((m) => `${selectedDay}_${m.id}`);
+              const areAllWeekExpanded = weekMeals.length > 0 && weekMeals.every((m) => isMealExpanded(`${selectedDay}_${m.id}`, true));
+              const filteredWeekMeals = weekMealFilter === "ALL"
+                ? weekMeals
+                : weekMeals.filter((m) => m.mealType === weekMealFilter || m.id === weekMealFilter);
+
+              return (
+                <div className="space-y-3 sm:space-y-4 animate-fade-in">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 sm:gap-2">
+                    <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
+                      <span>Menu:</span>
+                      <span className="text-[#ea580c] dark:text-orange-400">{selectedDayLabel}</span>
                     </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                    <p className="text-xs text-stone-500 dark:text-stone-400 hidden sm:block">
                       Pianifica i pasti per ciascun giorno scegliendo tra le opzioni o impostando pasti liberi.
                     </p>
                   </div>
-                </div>
 
-                {/* Selettore Giorno */}
-                <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} currentDay={todayKey} />
+                  {/* Selettore Giorno */}
+                  <DaySelector selectedDay={selectedDay} onSelectDay={setSelectedDay} currentDay={todayKey} />
 
-                {/* Pasti del Giorno Selezionato */}
-                <div className="space-y-3 pt-1">
-                  {activeDayPlan?.meals.map((meal) => (
-                    <MealCard
-                      key={meal.id}
-                      meal={meal}
-                      dayOfWeek={selectedDay}
-                      selection={selections[`${selectedDay}_${meal.mealType}`]}
-                      addFixedVegetables={addFixedVegetables}
-                      fixedVegetableGrams={fixedVegetableGrams}
-                      onSelectOption={(optId) => setOption(selectedDay, meal.mealType, optId)}
-                      onToggleFreeMeal={() => toggleFreeMeal(selectedDay, meal.mealType)}
-                      onAddCustomOption={(data) => addCustomOption(selectedDay, meal.mealType, data)}
-                      onRemoveCustomOption={(optId) => removeCustomOption(selectedDay, meal.mealType, optId)}
-                    />
-                  ))}
+                  {/* Barra Filtri Pasto Rapidi & Azione Comprimi/Espandi */}
+                  <div className="flex items-center justify-between gap-2 pt-0.5">
+                    {weekMeals.length > 1 ? (
+                      <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 flex-1 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => setWeekMealFilter("ALL")}
+                          className={`px-2.5 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer active:scale-95 ${
+                            weekMealFilter === "ALL"
+                              ? "bg-[#F7931E] text-white shadow-xs"
+                              : "bg-white dark:bg-[#1a1a1e] text-stone-600 dark:text-stone-400 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50"
+                          }`}
+                        >
+                          Tutti ({weekMeals.length})
+                        </button>
+                        {weekMeals.map((meal) => {
+                          const isSelected = weekMealFilter === meal.mealType || weekMealFilter === meal.id;
+                          return (
+                            <button
+                              key={meal.id}
+                              type="button"
+                              onClick={() => {
+                                const nextFilter = isSelected ? "ALL" : meal.mealType;
+                                setWeekMealFilter(nextFilter);
+                                setExpandedMeals((prev) => ({ ...prev, [`${selectedDay}_${meal.id}`]: true }));
+                              }}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1 cursor-pointer active:scale-95 ${
+                                isSelected
+                                  ? "bg-[#F7931E] text-white shadow-xs font-bold"
+                                  : "bg-white dark:bg-[#1a1a1e] text-stone-600 dark:text-stone-400 border border-stone-200/80 dark:border-stone-800 hover:bg-stone-50"
+                              }`}
+                            >
+                              <span>{meal.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : <div />}
+
+                    <button
+                      type="button"
+                      onClick={() => setAllMealsExpanded(weekMealKeys, !areAllWeekExpanded)}
+                      className="text-[11px] sm:text-xs font-bold text-stone-600 dark:text-stone-300 hover:text-[#ea580c] flex items-center gap-1 px-2.5 py-1 rounded-xl bg-stone-100 dark:bg-stone-800/80 border border-stone-200/60 dark:border-stone-800 shrink-0 cursor-pointer active:scale-95"
+                      title={areAllWeekExpanded ? "Riduci tutte le schede" : "Espandi tutte le schede"}
+                    >
+                      {areAllWeekExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                      <span>{areAllWeekExpanded ? "Comprimi" : "Espandi"}</span>
+                    </button>
+                  </div>
+
+                  {/* Pasti del Giorno Selezionato */}
+                  <div className="space-y-2.5 sm:space-y-3 pt-0.5">
+                    {filteredWeekMeals.map((meal) => {
+                      const mealKey = `${selectedDay}_${meal.id}`;
+                      return (
+                        <MealCard
+                          key={meal.id}
+                          meal={meal}
+                          dayOfWeek={selectedDay}
+                          selection={selections[`${selectedDay}_${meal.mealType}`]}
+                          addFixedVegetables={addFixedVegetables}
+                          fixedVegetableGrams={fixedVegetableGrams}
+                          onSelectOption={(optId) => setOption(selectedDay, meal.mealType, optId)}
+                          onToggleFreeMeal={() => toggleFreeMeal(selectedDay, meal.mealType)}
+                          onAddCustomOption={(data) => addCustomOption(selectedDay, meal.mealType, data)}
+                          onRemoveCustomOption={(optId) => removeCustomOption(selectedDay, meal.mealType, optId)}
+                          isExpanded={isMealExpanded(mealKey, true)}
+                          onToggleExpand={() => toggleMealExpanded(mealKey, true)}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* TAB 3: LISTA DELLA SPESA CALCOLATA */}
             {activeTab === "SPESA" && (
-              <div className="space-y-4 animate-fade-in">
+              <div className="space-y-3 sm:space-y-4 animate-fade-in">
                 <div>
                   <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">
-                    Lista della Spesa Intelligente di {currentUser.name}
+                    Lista della Spesa di {currentUser.name}
                   </h3>
-                  <p className="text-xs text-stone-500 dark:text-stone-400">
+                  <p className="text-xs text-stone-500 dark:text-stone-400 hidden sm:block">
                     Calcolata esattamente sulle opzioni scelte, raggruppata per reparto con conversione automatica in kg/l.
                   </p>
                 </div>
@@ -438,13 +559,13 @@ export default function HomePage() {
 
             {/* TAB 4: REGOLE DEL PIANO */}
             {activeTab === "REGOLE" && (
-              <div className="space-y-4 animate-fade-in">
-                <div className="flex items-center justify-between">
+              <div className="space-y-3 sm:space-y-4 animate-fade-in">
+                <div className="flex items-center justify-between gap-2">
                   <div>
                     <h3 className="text-base sm:text-lg font-black text-stone-900 dark:text-stone-100">
-                      Regole e Vincoli del Nutrizionista
+                      Regole del Nutrizionista
                     </h3>
-                    <p className="text-xs text-stone-500 dark:text-stone-400">
+                    <p className="text-xs text-stone-500 dark:text-stone-400 hidden sm:block">
                       Queste regole definiscono le frequenze settimanali consigliate dal nutrizionista.
                     </p>
                   </div>
