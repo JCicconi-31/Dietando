@@ -23,11 +23,18 @@ Requisiti funzionali e scelte architetturali sono stati tradotti in un'architett
 
 ## ✨ Funzionalità Principali
 
-- 📱 **Mobile-First & PWA Installabile:** Progettata per l'uso immediato da smartphone e installabile come app nativa (iOS/Android) con funzionamento al 100% offline.
+- 📱 **Mobile Experience Avanzata & PWA Installabile:**
+  - **Banner Dieta Ultra-Compatto:** Ridotto a una barra minimale salvaspazio su smartphone (~38px), espandibile a fisarmonica su richiesta per consultare note e impostazioni senza sacrificare l'area di lettura.
+  - **Filtri Rapidi Pasti (`Colazione`, `Pranzo`, `Cena`, ecc.):** Barra di pillole orizzontali per visualizzare istantaneamente il pasto di proprio interesse ed eliminare lo scorrimento prolungato.
+  - **Schede Pasto Comprimibili a Fisarmonica:** Visualizzazione dell'intero menu giornaliero in una singola schermata dello smartphone quando compresse; espandibili singolarmente o tramite il tasto rapido **"Comprimi tutti / Espandi tutti"**.
+  - Installabile su iOS e Android (PWA) con funzionamento e persistenza al 100% offline.
 - 🎯 **Priorità UX "Oggi":** All'apertura dell'app visualizzi subito i pasti del giorno corrente e puoi cambiare al volo l'opzione che desideri mangiare.
-- 🔄 **Alternative dei Pasti ("Oppure"):** Gestione delle scelte alternative previste dal nutrizionista (es. pasta al tonno *oppure* riso col pollo) con aggiornamento immediato di ingredienti e grammature.
+- 🔄 **Alternative dei Pasti ("Oppure") & Opzioni Personalizzate:**
+  - Gestione delle scelte alternative previste dal nutrizionista (es. pasta al tonno *oppure* riso col pollo) con aggiornamento immediato di ingredienti e grammature.
+  - Possibilità di aggiungere alternative personalizzate o ingredienti extra inclusi automaticamente nel calcolo della spesa.
 - 🎉 **Pasto Libero:** Con un tap puoi contrassegnare qualsiasi pasto come "Pasto Libero" (es. pizza con amici): il pasto viene escluso automaticamente dal calcolo della spesa.
 - 🛒 **Lista della Spesa Intelligente:**
+  - **Selezione Giorni Flessibile:** Calcola la spesa per l'intera settimana o per intervalli rapidi (es. prossimi 2, 3 o 4 giorni, weekend, giorni lavorativi).
   - **Moltiplicatore $N$ settimane:** Calcola la spesa per 1, 2, 3 o 4 settimane consecutive.
   - **Conversione automatica unità:** Converte automaticamente quantità $\ge 1000\text{g} \to \text{kg}$ e $\ge 1000\text{ml} \to \text{l}$.
   - **Raggruppamento per reparto:** Ortofrutta, Banco Frigo, Macelleria, Pescheria, Dispensa e Cereali, Condimenti, Surgelati.
@@ -126,7 +133,7 @@ Esegui:
 ```bash
 npm test
 ```
-Verifica che tutti i **16 test** per l'aggregatore della spesa e il validatore di regole passino con esito verde (✓).
+Verifica che tutti i **37 test** (isolamento account utente, validatore di regole, aggregatore spesa, alimenti personalizzati) passino con esito verde (✓).
 
 ### Test 2: Avvio e Navigazione ("Oggi" e "Settimana")
 1. Avvia l'app con:
