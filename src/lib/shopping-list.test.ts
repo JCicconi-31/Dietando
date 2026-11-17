@@ -3,6 +3,7 @@ import {
   aggregateShoppingList,
   convertUnit,
   formatAmountNumber,
+  formatQuantity,
   formatShoppingListAsText,
   getNextNDays,
 } from "./shopping-list";
@@ -74,6 +75,14 @@ describe("Shopping List Unit Conversion & Formatting", () => {
       convertedUnit: "pezzi",
       displayAmount: "6 pezzi",
     });
+  });
+
+  it("uses singular units when the quantity is exactly 1", () => {
+    expect(formatQuantity(1, "pezzi")).toBe("1 pezzo");
+    expect(formatQuantity(1, "Fette")).toBe("1 fetta");
+    expect(formatQuantity(1, "g")).toBe("1 g");
+    expect(formatQuantity(1.5, "pezzi")).toBe("1.5 pezzi");
+    expect(convertUnit(1, "pezzi").displayAmount).toBe("1 pezzo");
   });
 });
 

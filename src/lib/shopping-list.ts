@@ -83,8 +83,40 @@ export function convertUnit(
   return {
     convertedAmount: amount,
     convertedUnit: unit,
-    displayAmount: `${formatAmountNumber(amount)} ${unit}`,
+    displayAmount: formatQuantity(amount, unit),
   };
+}
+
+// Unità plurali -> singolare, usate quando la quantità è esattamente 1.
+const SINGULAR_UNITS: Record<string, string> = {
+  pezzi: "pezzo",
+  fette: "fetta",
+  cucchiai: "cucchiaio",
+  cucchiaini: "cucchiaino",
+  vasetti: "vasetto",
+  bicchieri: "bicchiere",
+  tazze: "tazza",
+  porzioni: "porzione",
+  confezioni: "confezione",
+  scatolette: "scatoletta",
+  spicchi: "spicchio",
+  uova: "uovo",
+  panini: "panino",
+  gallette: "galletta",
+  fettine: "fettina",
+};
+
+/**
+ * Formatta quantità + unità concordando il numero ("1 pezzo", "2 pezzi").
+ */
+export function formatQuantity(amount: number, unit: string): string {
+  const num = formatAmountNumber(amount);
+  const trimmed = unit.trim();
+  if (num === "1") {
+    const singular = SINGULAR_UNITS[trimmed.toLowerCase()];
+    if (singular) return `${num} ${singular}`;
+  }
+  return `${num} ${trimmed}`;
 }
 
 /**

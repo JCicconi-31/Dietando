@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   Calendar,
   ShoppingBag,
@@ -26,7 +26,10 @@ import { validateDietRules } from "@/lib/rules-validator";
 import { useDietStore } from "@/lib/client-store";
 import type { AuthUser } from "@/lib/client-auth";
 import { aggregateShoppingList } from "@/lib/shopping-list";
+import { getNextMealId } from "@/lib/meal-timing";
 import { DayOfWeek } from "@/types/diet";
+
+type AppTab = "OGGI" | "SETTIMANA" | "SPESA" | "REGOLE";
 
 interface DietAppProps {
   currentUser: AuthUser;
@@ -85,7 +88,19 @@ export function DietApp({
     removeCustomOption,
   } = useDietStore(currentUser.id, onSessionExpired);
 
-  const [activeTab, setActiveTab] = useState<"OGGI" | "SETTIMANA" | "SPESA" | "REGOLE">("OGGI");
+  const [activeTab, setActiveTabState] = useState<AppTab>("OGGI");
+  // Cambiando scheda si riparte dall'inizio della pagina (prima restava lo scroll precedente).
+  const setActiveTab = (tab: AppTab) => {
+    setActiveTabState(tab);
+    window.scrollTo({ top: 0, behavior: "instant" });
+  };
+
+  // Ora corrente, aggiornata ogni minuto, per evidenziare il prossimo pasto di oggi.
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(timer);
+  }, []);
   // Il componente è montato solo lato client, quindi il giorno corrente si può calcolare subito.
   const [todayKey] = useState<DayOfWeek>(getCurrentDayOfWeek);
   const [selectedDay, setSelectedDay] = useState<DayOfWeek>(todayKey);
@@ -140,6 +155,13 @@ export function DietApp({
 
   const todayDayPlan = plan?.days.find((d) => d.dayOfWeek === todayKey) || plan?.days[0];
   const activeDayPlan = plan?.days.find((d) => d.dayOfWeek === selectedDay) || plan?.days[0];
+
+  // Prossimo pasto di oggi: i pasti già passati partono ridotti, così si vede subito cosa mangiare.
+  const todayMealsList = todayDayPlan?.meals ?? [];
+  const nextMealId = getNextMealId(todayMealsList, now);
+  const nextMealIndex = todayMealsList.findIndex((m) => m.id === nextMealId);
+  const isTodayMealPast = (mealId: string) =>
+    nextMealIndex > 0 && todayMealsList.findIndex((m) => m.id === mealId) < nextMealIndex;
 
   const todayLabel = DAYS_INFO.find((d) => d.key === todayKey)?.label || "Oggi";
   const selectedDayLabel = DAYS_INFO.find((d) => d.key === selectedDay)?.label || "Lunedì";
@@ -239,7 +261,7 @@ export function DietApp({
             {activeTab === "OGGI" && (() => {
               const todayMeals = todayDayPlan?.meals || [];
               const todayMealKeys = todayMeals.map((m) => `${todayKey}_${m.id}`);
-              const areAllTodayExpanded = todayMeals.length > 0 && todayMeals.every((m) => isMealExpanded(`${todayKey}_${m.id}`, true));
+              const areAllTodayExpanded = todayMeals.length > 0 && todayMeals.every((m) => isMealExpanded(`${todayKey}_${m.id}`, !isTodayMealPast(m.id)));
               const filteredTodayMeals = todayMealFilter === "ALL"
                 ? todayMeals
                 : todayMeals.filter((m) => m.mealType === todayMealFilter || m.id === todayMealFilter);
@@ -331,6 +353,8 @@ export function DietApp({
                           key={meal.id}
                           meal={meal}
                           dayOfWeek={todayKey}
+                          dayLabel={todayLabel}
+                          isNext={meal.id === nextMealId}
                           selection={selections[`${todayKey}_${meal.mealType}`]}
                           addFixedVegetables={addFixedVegetables}
                           fixedVegetableGrams={fixedVegetableGrams}
@@ -338,8 +362,8 @@ export function DietApp({
                           onToggleFreeMeal={() => toggleFreeMeal(todayKey, meal.mealType)}
                           onAddCustomOption={(data) => addCustomOption(todayKey, meal.mealType, data)}
                           onRemoveCustomOption={(optId) => removeCustomOption(todayKey, meal.mealType, optId)}
-                          isExpanded={isMealExpanded(mealKey, true)}
-                          onToggleExpand={() => toggleMealExpanded(mealKey, true)}
+                          isExpanded={isMealExpanded(mealKey, !isTodayMealPast(meal.id))}
+                          onToggleExpand={() => toggleMealExpanded(mealKey, !isTodayMealPast(meal.id))}
                         />
                       );
                     })}
@@ -431,6 +455,8 @@ export function DietApp({
                           key={meal.id}
                           meal={meal}
                           dayOfWeek={selectedDay}
+                          dayLabel={selectedDayLabel}
+                          isNext={selectedDay === todayKey && meal.id === nextMealId}
                           selection={selections[`${selectedDay}_${meal.mealType}`]}
                           addFixedVegetables={addFixedVegetables}
                           fixedVegetableGrams={fixedVegetableGrams}

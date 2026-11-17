@@ -105,6 +105,31 @@ export function ShoppingListView({
 
   const progressPercent = totalItems > 0 ? Math.round((purchasedCount / totalItems) * 100) : 0;
 
+  // Al supermercato: i prodotti presi scendono in fondo al reparto e i reparti completati
+  // in fondo alla lista; opzionalmente si possono nascondere del tutto.
+  const [hidePurchased, setHidePurchased] = useState(false);
+  const displayGroups = useMemo(() => {
+    const sorted = groups.map((group) => {
+      const todo = group.items.filter((i) => !i.isPurchased);
+      const done = group.items.filter((i) => i.isPurchased);
+      return {
+        ...group,
+        totalCount: group.items.length,
+        purchasedCount: done.length,
+        isComplete: todo.length === 0,
+        items: hidePurchased ? todo : [...todo, ...done],
+      };
+    });
+    const visible = hidePurchased ? sorted.filter((g) => !g.isComplete) : sorted;
+    return [...visible.filter((g) => !g.isComplete), ...visible.filter((g) => g.isComplete)];
+  }, [groups, hidePurchased]);
+
+  const handleResetPurchased = () => {
+    if (window.confirm(`Vuoi togliere la spunta a tutti i ${purchasedCount} prodotti già presi?`)) {
+      onResetPurchased();
+    }
+  };
+
   const handleCopyList = async () => {
     const text = formatShoppingListAsText(groups, weeksCount, activeDays);
     try {
@@ -126,10 +151,10 @@ export function ShoppingListView({
     }
   };
 
-  const toggleDept = (dept: string) => {
+  const toggleDept = (dept: string, currentlyCollapsed: boolean) => {
     setCollapsedDepts((prev) => ({
       ...prev,
-      [dept]: !prev[dept],
+      [dept]: !currentlyCollapsed,
     }));
   };
 
@@ -293,8 +318,9 @@ export function ShoppingListView({
 
             {purchasedCount > 0 && (
               <button
-                onClick={onResetPurchased}
-                title="Azzera tutte le caselle comprato"
+                onClick={handleResetPurchased}
+                title="Togli la spunta a tutti i prodotti"
+                aria-label="Togli la spunta a tutti i prodotti"
                 className="p-2 rounded-xl text-stone-500 hover:text-stone-800 dark:hover:text-stone-200 bg-stone-100 dark:bg-stone-800 transition-colors"
               >
                 <RotateCcw size={15} />
@@ -321,11 +347,19 @@ export function ShoppingListView({
 
         {/* Progress bar avanzamento spesa */}
         <div className="pt-1">
-          <div className="flex items-center justify-between text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5">
-            <span>Avanzamento acquisti</span>
+          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-stone-500 dark:text-stone-400 mb-1.5">
             <span>
-              {purchasedCount} su {totalItems} ({progressPercent}%)
+              Presi {purchasedCount} su {totalItems} ({progressPercent}%)
             </span>
+            <label className="flex items-center gap-1.5 cursor-pointer select-none text-stone-600 dark:text-stone-300">
+              <input
+                type="checkbox"
+                checked={hidePurchased}
+                onChange={(e) => setHidePurchased(e.target.checked)}
+                className="w-3.5 h-3.5 accent-[#F7931E] cursor-pointer"
+              />
+              Nascondi già presi
+            </label>
           </div>
           <div className="w-full h-2 rounded-full bg-stone-100 dark:bg-stone-800 overflow-hidden">
             <div
@@ -361,11 +395,23 @@ export function ShoppingListView({
           <ShoppingBag size={32} className="mx-auto mb-2 opacity-40 text-[#F7931E]" />
           Nessun ingrediente nella lista per le impostazioni selezionate.
         </div>
+      ) : displayGroups.length === 0 ? (
+        <div className="p-8 text-center bg-white dark:bg-[#1a1a1e] rounded-2xl border border-emerald-200 dark:border-emerald-900/50 space-y-2">
+          <div className="text-3xl">🎉</div>
+          <h4 className="text-sm font-bold text-stone-800 dark:text-stone-200">Spesa completata!</h4>
+          <button
+            type="button"
+            onClick={() => setHidePurchased(false)}
+            className="text-xs font-semibold text-[#ea580c] underline underline-offset-2 cursor-pointer"
+          >
+            Mostra i prodotti presi
+          </button>
+        </div>
       ) : (
         <div className="space-y-3">
-          {groups.map((group) => {
-            const isCollapsed = collapsedDepts[group.department] || false;
-            const groupPurchased = group.items.filter((i) => i.isPurchased).length;
+          {displayGroups.map((group) => {
+            const isCollapsed = collapsedDepts[group.department] ?? group.isComplete;
+            const groupPurchased = group.purchasedCount;
 
             return (
               <div
@@ -374,7 +420,8 @@ export function ShoppingListView({
               >
                 {/* Header del Reparto */}
                 <button
-                  onClick={() => toggleDept(group.department)}
+                  onClick={() => toggleDept(group.department, isCollapsed)}
+                  aria-expanded={!isCollapsed}
                   className="w-full px-4 py-3 flex items-center justify-between bg-stone-50/60 dark:bg-[#202025]/60 hover:bg-stone-100/60 dark:hover:bg-[#25252b]/60 transition-colors"
                 >
                   <div className="flex items-center gap-2.5">
@@ -382,9 +429,15 @@ export function ShoppingListView({
                     <span className="font-bold text-sm text-stone-800 dark:text-stone-200">
                       {group.department}
                     </span>
-                    <span className="text-xs text-stone-400 dark:text-stone-500 font-medium">
-                      ({groupPurchased}/{group.items.length})
-                    </span>
+                    {group.isComplete ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                        <Check size={12} strokeWidth={3} /> Completato
+                      </span>
+                    ) : (
+                      <span className="text-xs text-stone-400 dark:text-stone-500 font-medium">
+                        ({groupPurchased}/{group.totalCount})
+                      </span>
+                    )}
                   </div>
                   {isCollapsed ? (
                     <ChevronDown size={16} className="text-stone-400" />
