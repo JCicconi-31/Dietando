@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { SAMPLE_PLAN } from "@/data/sample-plan";
 import {
   MealSelection,
@@ -13,7 +13,8 @@ import {
 } from "@/types/diet";
 import { inferCategoryAndDepartment } from "@/lib/custom-food";
 
-export interface LocalDietState {
+/** Dati dell'utente sincronizzati tra localStorage e server. */
+export interface DietData {
   plan: Plan | null;
   selections: Record<string, MealSelection>;
   purchasedItems: Record<string, boolean>;
@@ -21,10 +22,32 @@ export interface LocalDietState {
   addFixedVegetables: boolean;
   fixedVegetableGrams: number;
   selectedShoppingDays: DayOfWeek[];
+}
+
+/** Metadati di sincronizzazione salvati in locale. */
+export interface SyncMeta {
+  /** `updatedAt` del server all'ultima sincronizzazione riuscita. */
+  lastSyncedAt: string | null;
+  /** Timestamp (ms) dell'ultima modifica locale non ancora inviata, o null se tutto è sincronizzato. */
+  dirtySince: number | null;
+}
+
+export interface RemoteDietData {
+  plan: Plan | null;
+  selections: Record<string, MealSelection>;
+  purchased: Record<string, boolean>;
+  settings: Partial<Pick<DietData, "weeksCount" | "addFixedVegetables" | "fixedVegetableGrams" | "selectedShoppingDays">>;
+  updatedAt: string;
+}
+
+export type SyncStatus = "idle" | "syncing" | "error" | "offline";
+
+export interface LocalDietState extends DietData {
   isOnline: boolean;
   isInitialized: boolean;
-  setOption: (dayOfWeek: string, mealType: string, optionId: string) => void;
-  toggleFreeMeal: (dayOfWeek: string, mealType: string) => void;
+  syncStatus: SyncStatus;
+  setOption: (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => void;
+  toggleFreeMeal: (dayOfWeek: DayOfWeek, mealType: MealType) => void;
   togglePurchased: (itemKey: string) => void;
   setWeeksCount: (weeks: number) => void;
   setAddFixedVegetables: (enabled: boolean) => void;
@@ -43,19 +66,19 @@ export interface LocalDietState {
   removeCustomOption: (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => void;
 }
 
-export function useDietStore(userId?: string | null): LocalDietState {
-  const [plan, setPlan] = useState<Plan | null>(null);
-  const [selections, setSelections] = useState<Record<string, MealSelection>>({});
-  const [purchasedItems, setPurchasedItems] = useState<Record<string, boolean>>({});
-  const [weeksCount, setWeeksCountState] = useState<number>(1);
-  const [addFixedVegetables, setAddFixedVegetablesState] = useState<boolean>(false);
-  const [fixedVegetableGrams, setFixedVegetableGramsState] = useState<number>(200);
-  const [selectedShoppingDays, setSelectedShoppingDaysState] = useState<DayOfWeek[]>(ALL_DAYS);
-  const [isOnline, setIsOnline] = useState<boolean>(true);
-  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+export const DEFAULT_DIET_DATA: DietData = {
+  plan: null,
+  selections: {},
+  purchasedItems: {},
+  weeksCount: 1,
+  addFixedVegetables: false,
+  fixedVegetableGrams: 200,
+  selectedShoppingDays: ALL_DAYS,
+};
 
-  // Helper per chiavi di storage isolate per utente
-  const getKeys = useCallback((uid: string) => ({
+/** Chiavi localStorage isolate per utente (invariate rispetto alle versioni precedenti). */
+export function getStorageKeys(uid: string) {
+  return {
     plan: `diet_plan_${uid}`,
     selections: `diet_selections_${uid}`,
     purchased: `diet_purchased_${uid}`,
@@ -63,428 +86,452 @@ export function useDietStore(userId?: string | null): LocalDietState {
     veg: `diet_fixed_veg_${uid}`,
     vegGrams: `diet_fixed_veg_grams_${uid}`,
     shoppingDays: `diet_shopping_days_${uid}`,
-  }), []);
+    syncMeta: `diet_sync_meta_${uid}`,
+  };
+}
 
-  // Caricamento iniziale dallo storage locale (strettamente isolato per userId)
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+function readJson<T>(storage: StorageLike, key: string, isValid: (v: unknown) => boolean, fallback: T): T {
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return fallback;
+    const parsed: unknown = JSON.parse(raw);
+    return isValid(parsed) ? (parsed as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+const isPlan = (v: unknown) => isRecord(v) && typeof v.title === "string" && Array.isArray(v.days);
+
+const isDayList = (v: unknown) =>
+  Array.isArray(v) && v.length > 0 && v.every((d) => ALL_DAYS.includes(d as DayOfWeek));
+
+export function loadLocalDietData(storage: StorageLike, uid: string): DietData {
+  const keys = getStorageKeys(uid);
+  const weeks = Number(storage.getItem(keys.weeks));
+  const vegGrams = Number(storage.getItem(keys.vegGrams));
+
+  return {
+    plan: readJson<Plan | null>(storage, keys.plan, isPlan, null),
+    selections: readJson(storage, keys.selections, isRecord, {}),
+    purchasedItems: readJson(storage, keys.purchased, isRecord, {}),
+    weeksCount: weeks >= 1 ? weeks : DEFAULT_DIET_DATA.weeksCount,
+    addFixedVegetables: storage.getItem(keys.veg) === "true",
+    fixedVegetableGrams: vegGrams > 0 ? vegGrams : DEFAULT_DIET_DATA.fixedVegetableGrams,
+    selectedShoppingDays: readJson(storage, keys.shoppingDays, isDayList, ALL_DAYS),
+  };
+}
+
+export function saveLocalDietData(storage: StorageLike, uid: string, data: DietData) {
+  const keys = getStorageKeys(uid);
+  if (data.plan) storage.setItem(keys.plan, JSON.stringify(data.plan));
+  else storage.removeItem(keys.plan);
+  storage.setItem(keys.selections, JSON.stringify(data.selections));
+  storage.setItem(keys.purchased, JSON.stringify(data.purchasedItems));
+  storage.setItem(keys.weeks, String(data.weeksCount));
+  storage.setItem(keys.veg, String(data.addFixedVegetables));
+  storage.setItem(keys.vegGrams, String(data.fixedVegetableGrams));
+  storage.setItem(keys.shoppingDays, JSON.stringify(data.selectedShoppingDays));
+}
+
+export function loadSyncMeta(storage: StorageLike, uid: string): SyncMeta {
+  return readJson<SyncMeta>(storage, getStorageKeys(uid).syncMeta, isRecord, {
+    lastSyncedAt: null,
+    dirtySince: null,
+  });
+}
+
+export function saveSyncMeta(storage: StorageLike, uid: string, meta: SyncMeta) {
+  storage.setItem(getStorageKeys(uid).syncMeta, JSON.stringify(meta));
+}
+
+export function remoteToDietData(remote: RemoteDietData): DietData {
+  const s = remote.settings || {};
+  return {
+    plan: remote.plan ?? null,
+    selections: remote.selections ?? {},
+    purchasedItems: remote.purchased ?? {},
+    weeksCount: s.weeksCount ?? DEFAULT_DIET_DATA.weeksCount,
+    addFixedVegetables: s.addFixedVegetables ?? DEFAULT_DIET_DATA.addFixedVegetables,
+    fixedVegetableGrams: s.fixedVegetableGrams ?? DEFAULT_DIET_DATA.fixedVegetableGrams,
+    selectedShoppingDays:
+      s.selectedShoppingDays && s.selectedShoppingDays.length > 0 ? s.selectedShoppingDays : ALL_DAYS,
+  };
+}
+
+export function dietDataToPayload(data: DietData) {
+  return {
+    plan: data.plan,
+    selections: data.selections,
+    purchased: data.purchasedItems,
+    settings: {
+      weeksCount: data.weeksCount,
+      addFixedVegetables: data.addFixedVegetables,
+      fixedVegetableGrams: data.fixedVegetableGrams,
+      selectedShoppingDays: data.selectedShoppingDays,
+    },
+  };
+}
+
+/**
+ * Decide come riconciliare dati locali e remoti all'avvio.
+ * - Nessuna modifica locale pendente → si adottano i dati del server.
+ * - Modifiche locali pendenti e server invariato dall'ultimo sync → si inviano quelle locali.
+ * - Entrambi modificati → vince il più recente (last-write-wins sul timestamp).
+ */
+export function resolveInitialSync(
+  remote: RemoteDietData | null,
+  meta: SyncMeta
+): "adopt-remote" | "push-local" | "none" {
+  if (!remote) return meta.dirtySince !== null || meta.lastSyncedAt === null ? "push-local" : "none";
+  if (meta.dirtySince === null) return "adopt-remote";
+
+  const remoteTime = new Date(remote.updatedAt).getTime();
+  const lastSyncedTime = meta.lastSyncedAt ? new Date(meta.lastSyncedAt).getTime() : 0;
+  if (remoteTime <= lastSyncedTime) return "push-local";
+  return meta.dirtySince > remoteTime ? "push-local" : "adopt-remote";
+}
+
+function subscribeOnline(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
+export function useOnlineStatus(): boolean {
+  return useSyncExternalStore(
+    subscribeOnline,
+    () => navigator.onLine,
+    () => true
+  );
+}
+
+const SYNC_DEBOUNCE_MS = 1200;
+
+/**
+ * Store dei dati della dieta per l'utente autenticato.
+ * Va montato solo lato client e con `key={userId}`, così lo stato viene
+ * reinizializzato da localStorage a ogni cambio utente.
+ */
+export function useDietStore(userId: string, onUnauthorized?: () => void): LocalDietState {
+  const [data, setData] = useState<DietData>(() => loadLocalDietData(localStorage, userId));
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const isOnline = useOnlineStatus();
+
+  // Il push verso il server parte solo dopo la riconciliazione iniziale col server,
+  // per non sovrascrivere i dati remoti con lo stato locale (vuoto o vecchio).
+  const [isHydrated, setIsHydrated] = useState(false);
+  // Ultimo snapshot noto come allineato al server: evita push inutili.
+  const syncedSnapshotRef = useRef<string | null>(null);
+  // Snapshot dello stato letto da localStorage al montaggio.
+  const initialSnapshotRef = useRef<string | null>(null);
+  const onUnauthorizedRef = useRef(onUnauthorized);
+  const latestDataRef = useRef(data);
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    onUnauthorizedRef.current = onUnauthorized;
+    latestDataRef.current = data;
+  });
 
-    if (!userId) {
-      setPlan(null);
-      setSelections({});
-      setPurchasedItems({});
-      setIsInitialized(true);
-      return;
-    }
-
-    const keys = getKeys(userId);
-
-    try {
-      const savedPlan = localStorage.getItem(keys.plan);
-      if (savedPlan) {
-        try {
-          const parsedPlan = JSON.parse(savedPlan);
-          setPlan(parsedPlan);
-        } catch {
-          setPlan(null);
+  const pushToServer = useCallback(
+    async (snapshot: DietData) => {
+      setSyncStatus("syncing");
+      try {
+        const res = await fetch("/api/diet/data", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(dietDataToPayload(snapshot)),
+        });
+        if (res.status === 401) {
+          onUnauthorizedRef.current?.();
+          return;
         }
-      } else {
-        // Nessun piano di default! L'utente deve inserirlo.
-        setPlan(null);
-      }
+        const body = await res.json();
+        if (!res.ok || !body.success) throw new Error(body.error || "Sync fallita");
 
-      const savedSelections = localStorage.getItem(keys.selections);
-      if (savedSelections) {
-        setSelections(JSON.parse(savedSelections));
-      } else {
-        setSelections({});
+        const sent = JSON.stringify(snapshot);
+        syncedSnapshotRef.current = sent;
+        // Marca come sincronizzato solo se nel frattempo non ci sono state nuove modifiche.
+        const unchanged = JSON.stringify(latestDataRef.current) === sent;
+        saveSyncMeta(localStorage, userId, {
+          lastSyncedAt: body.updatedAt,
+          dirtySince: unchanged ? null : loadSyncMeta(localStorage, userId).dirtySince,
+        });
+        setSyncStatus("idle");
+      } catch {
+        setSyncStatus(navigator.onLine ? "error" : "offline");
       }
+    },
+    [userId]
+  );
 
-      const savedPurchased = localStorage.getItem(keys.purchased);
-      if (savedPurchased) {
-        setPurchasedItems(JSON.parse(savedPurchased));
-      } else {
-        setPurchasedItems({});
-      }
-
-      const savedWeeks = localStorage.getItem(keys.weeks);
-      if (savedWeeks) {
-        setWeeksCountState(Number(savedWeeks) || 1);
-      } else {
-        setWeeksCountState(1);
-      }
-
-      const savedVeg = localStorage.getItem(keys.veg);
-      if (savedVeg !== null) {
-        setAddFixedVegetablesState(savedVeg === "true");
-      } else {
-        setAddFixedVegetablesState(false);
-      }
-
-      const savedVegGrams = localStorage.getItem(keys.vegGrams);
-      if (savedVegGrams) {
-        setFixedVegetableGramsState(Number(savedVegGrams) || 200);
-      } else {
-        setFixedVegetableGramsState(200);
-      }
-
-      const savedShoppingDays = localStorage.getItem(keys.shoppingDays);
-      if (savedShoppingDays) {
-        try {
-          const parsedDays = JSON.parse(savedShoppingDays);
-          if (Array.isArray(parsedDays) && parsedDays.length > 0) {
-            setSelectedShoppingDaysState(parsedDays);
-          } else {
-            setSelectedShoppingDaysState(ALL_DAYS);
-          }
-        } catch {
-          setSelectedShoppingDaysState(ALL_DAYS);
+  // Riconciliazione iniziale con il server. Se offline o in errore, si riprova
+  // al ritorno della connessione: nel frattempo nessun push, così non si
+  // sovrascrivono dati più recenti salvati da un altro dispositivo.
+  useEffect(() => {
+    if (isHydrated || !isOnline) return;
+    let cancelled = false;
+    fetch("/api/diet/data")
+      .then(async (res) => {
+        if (res.status === 401) {
+          onUnauthorizedRef.current?.();
+          return;
         }
-      } else {
-        setSelectedShoppingDaysState(ALL_DAYS);
-      }
-    } catch (e) {
-      console.warn("Impossibile leggere dallo storage locale:", e);
-    }
+        const body = await res.json();
+        if (cancelled) return;
+        if (!res.ok || !body.success) {
+          setSyncStatus("error");
+          return;
+        }
 
-    setIsOnline(navigator.onLine);
+        const remote: RemoteDietData | null = body.data;
+        const meta = loadSyncMeta(localStorage, userId);
+        const decision = resolveInitialSync(remote, meta);
 
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-    setIsInitialized(true);
-
-    // Sincronizzazione multi-device cloud (PC <-> Telefono)
-    if (userId) {
-      fetch(`/api/diet/data?userId=${encodeURIComponent(userId)}`)
-        .then((res) => res.json())
-        .then((res) => {
-          if (res.success && res.data) {
-            const remote = res.data;
-            if (remote.plan) {
-              setPlan(remote.plan);
-              localStorage.setItem(keys.plan, JSON.stringify(remote.plan));
-            }
-            if (remote.selections && Object.keys(remote.selections).length > 0) {
-              setSelections(remote.selections);
-              localStorage.setItem(keys.selections, JSON.stringify(remote.selections));
-            }
-            if (remote.purchased) {
-              setPurchasedItems(remote.purchased);
-              localStorage.setItem(keys.purchased, JSON.stringify(remote.purchased));
-            }
-            if (remote.settings) {
-              if (remote.settings.weeksCount) setWeeksCountState(remote.settings.weeksCount);
-              if (remote.settings.addFixedVegetables !== undefined) setAddFixedVegetablesState(remote.settings.addFixedVegetables);
-              if (remote.settings.fixedVegetableGrams) setFixedVegetableGramsState(remote.settings.fixedVegetableGrams);
-              if (remote.settings.selectedShoppingDays) setSelectedShoppingDaysState(remote.settings.selectedShoppingDays);
-            }
-          }
-        })
-        .catch(() => {});
-    }
-
+        if (decision === "adopt-remote" && remote) {
+          const next = remoteToDietData(remote);
+          saveLocalDietData(localStorage, userId, next);
+          saveSyncMeta(localStorage, userId, { lastSyncedAt: remote.updatedAt, dirtySince: null });
+          syncedSnapshotRef.current = JSON.stringify(next);
+          setData(next);
+        } else if (decision === "none") {
+          syncedSnapshotRef.current = JSON.stringify(loadLocalDietData(localStorage, userId));
+        }
+        // "push-local": syncedSnapshotRef resta null, quindi l'effetto di salvataggio invierà i dati locali.
+        setIsHydrated(true);
+      })
+      .catch(() => {
+        if (!cancelled) setSyncStatus(navigator.onLine ? "error" : "offline");
+      });
     return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
+      cancelled = true;
     };
-  }, [userId, getKeys]);
+  }, [userId, isHydrated, isOnline]);
 
-  // Salvataggio persistente ad ogni mutazione (locale + cloud debounced)
+  // Persistenza locale immediata + push al server con debounce.
   useEffect(() => {
-    if (!isInitialized || typeof window === "undefined" || !userId) return;
-    const keys = getKeys(userId);
-
+    const snapshot = JSON.stringify(data);
     try {
-      if (plan) {
-        localStorage.setItem(keys.plan, JSON.stringify(plan));
-      } else {
-        localStorage.removeItem(keys.plan);
+      saveLocalDietData(localStorage, userId, data);
+      // La prima esecuzione registra lo stato caricato come riferimento "pulito":
+      // qualunque modifica successiva (anche offline) viene marcata come pendente.
+      const baseline = syncedSnapshotRef.current ?? initialSnapshotRef.current;
+      if (baseline === null) {
+        initialSnapshotRef.current = snapshot;
+      } else if (baseline !== snapshot) {
+        const meta = loadSyncMeta(localStorage, userId);
+        if (meta.dirtySince === null) {
+          saveSyncMeta(localStorage, userId, { ...meta, dirtySince: Date.now() });
+        }
       }
-      localStorage.setItem(keys.selections, JSON.stringify(selections));
-      localStorage.setItem(keys.purchased, JSON.stringify(purchasedItems));
-      localStorage.setItem(keys.weeks, weeksCount.toString());
-      localStorage.setItem(keys.veg, addFixedVegetables.toString());
-      localStorage.setItem(keys.vegGrams, fixedVegetableGrams.toString());
-      localStorage.setItem(keys.shoppingDays, JSON.stringify(selectedShoppingDays));
     } catch (e) {
       console.warn("Impossibile salvare su storage locale:", e);
     }
 
-    // Sync cloud debounced a PostgreSQL
-    const syncTimer = setTimeout(() => {
-      fetch("/api/diet/data", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId,
-          plan,
-          selections,
-          purchased: purchasedItems,
-          settings: {
-            weeksCount,
-            addFixedVegetables,
-            fixedVegetableGrams,
-            selectedShoppingDays,
-          },
-        }),
-      }).catch(() => {});
-    }, 1200);
+    if (!isHydrated || !isOnline || syncedSnapshotRef.current === snapshot) return;
+    const timer = setTimeout(() => void pushToServer(data), SYNC_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [data, isHydrated, isOnline, userId, pushToServer]);
 
-    return () => clearTimeout(syncTimer);
-  }, [plan, selections, purchasedItems, weeksCount, addFixedVegetables, fixedVegetableGrams, selectedShoppingDays, isInitialized, userId, getKeys]);
+  const update = useCallback((fn: (prev: DietData) => DietData) => setData(fn), []);
 
-  const setOption = (dayOfWeek: string, mealType: string, optionId: string) => {
+  const setOption = (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => {
     const key = `${dayOfWeek}_${mealType}`;
-    setSelections((prev) => ({
+    update((prev) => ({
       ...prev,
-      [key]: {
-        dayOfWeek: dayOfWeek as any,
-        mealType: mealType as any,
-        selectedOptionId: optionId,
-        isFreeMeal: false,
-        extraVegGrams: prev[key]?.extraVegGrams ?? 0,
+      selections: {
+        ...prev.selections,
+        [key]: {
+          dayOfWeek,
+          mealType,
+          selectedOptionId: optionId,
+          isFreeMeal: false,
+          extraVegGrams: prev.selections[key]?.extraVegGrams ?? 0,
+        },
       },
     }));
   };
 
-  const toggleFreeMeal = (dayOfWeek: string, mealType: string) => {
+  const toggleFreeMeal = (dayOfWeek: DayOfWeek, mealType: MealType) => {
     const key = `${dayOfWeek}_${mealType}`;
-    setSelections((prev) => {
-      const current = prev[key];
-      const nextIsFree = !current?.isFreeMeal;
+    update((prev) => {
+      const current = prev.selections[key];
       return {
         ...prev,
-        [key]: {
-          dayOfWeek: dayOfWeek as any,
-          mealType: mealType as any,
-          selectedOptionId: current?.selectedOptionId ?? null,
-          isFreeMeal: nextIsFree,
-          extraVegGrams: current?.extraVegGrams ?? 0,
+        selections: {
+          ...prev.selections,
+          [key]: {
+            dayOfWeek,
+            mealType,
+            selectedOptionId: current?.selectedOptionId ?? null,
+            isFreeMeal: !current?.isFreeMeal,
+            extraVegGrams: current?.extraVegGrams ?? 0,
+          },
         },
       };
     });
   };
 
-  const togglePurchased = (itemKey: string) => {
-    setPurchasedItems((prev) => ({
+  const togglePurchased = (itemKey: string) =>
+    update((prev) => ({
       ...prev,
-      [itemKey]: !prev[itemKey],
+      purchasedItems: { ...prev.purchasedItems, [itemKey]: !prev.purchasedItems[itemKey] },
     }));
-  };
 
-  const resetPurchased = () => {
-    setPurchasedItems({});
-  };
+  const resetPurchased = () => update((prev) => ({ ...prev, purchasedItems: {} }));
+  const setWeeksCount = (weeksCount: number) => update((prev) => ({ ...prev, weeksCount }));
+  const setAddFixedVegetables = (addFixedVegetables: boolean) =>
+    update((prev) => ({ ...prev, addFixedVegetables }));
+  const setFixedVegetableGrams = (fixedVegetableGrams: number) =>
+    update((prev) => ({ ...prev, fixedVegetableGrams }));
 
-  const setWeeksCount = (weeks: number) => {
-    setWeeksCountState(weeks);
-  };
+  const setSelectedShoppingDays = (days: DayOfWeek[]) =>
+    update((prev) => ({ ...prev, selectedShoppingDays: ALL_DAYS.filter((d) => days.includes(d)) }));
 
-  const setAddFixedVegetables = (enabled: boolean) => {
-    setAddFixedVegetablesState(enabled);
-  };
-
-  const setFixedVegetableGrams = (grams: number) => {
-    setFixedVegetableGramsState(grams);
-  };
-
-  const setSelectedShoppingDays = (days: DayOfWeek[]) => {
-    const sorted = ALL_DAYS.filter((d) => days.includes(d));
-    setSelectedShoppingDaysState(sorted);
-  };
-
-  const toggleShoppingDay = (day: DayOfWeek) => {
-    setSelectedShoppingDaysState((prev) => {
-      let next: DayOfWeek[];
-      if (prev.includes(day)) {
-        next = prev.filter((d) => d !== day);
-      } else {
-        next = [...prev, day];
-      }
-      return ALL_DAYS.filter((d) => next.includes(d));
+  const toggleShoppingDay = (day: DayOfWeek) =>
+    update((prev) => {
+      const next = prev.selectedShoppingDays.includes(day)
+        ? prev.selectedShoppingDays.filter((d) => d !== day)
+        : [...prev.selectedShoppingDays, day];
+      return { ...prev, selectedShoppingDays: ALL_DAYS.filter((d) => next.includes(d)) };
     });
-  };
 
-  const updateCustomPlan = (newPlan: Plan) => {
-    setPlan(newPlan);
-    setSelections({});
-    setPurchasedItems({});
-  };
+  const replacePlan = (plan: Plan | null) =>
+    update((prev) => ({ ...prev, plan, selections: {}, purchasedItems: {} }));
 
+  const updateCustomPlan = (newPlan: Plan) => replacePlan(newPlan);
   const removePlan = () => {
-    setPlan(null);
-    setSelections({});
-    setPurchasedItems({});
-    if (userId && typeof window !== "undefined") {
-      const keys = getKeys(userId);
-      localStorage.removeItem(keys.plan);
-      localStorage.removeItem(keys.selections);
-      localStorage.removeItem(keys.purchased);
-      localStorage.removeItem(keys.shoppingDays);
-    }
+    replacePlan(null);
+    update((prev) => ({ ...prev, selectedShoppingDays: ALL_DAYS }));
   };
+  const loadSamplePlan = () => replacePlan(SAMPLE_PLAN);
 
-  const loadSamplePlan = () => {
-    setPlan(SAMPLE_PLAN);
-    setSelections({});
-    setPurchasedItems({});
-  };
+  const addCustomOption = (
+    dayOfWeek: DayOfWeek,
+    mealType: MealType,
+    customData: CustomOptionInput
+  ): Option | null => {
+    const plan = data.plan;
+    if (!plan) return null;
 
-  const addCustomOption = useCallback(
-    (
-      dayOfWeek: DayOfWeek,
-      mealType: MealType,
-      customData: CustomOptionInput
-    ): Option | null => {
-      if (!plan) return null;
+    const trimmedName = customData.name.trim();
+    if (!trimmedName) return null;
 
-      const trimmedName = customData.name.trim();
-      if (!trimmedName) return null;
+    const meal = plan.days
+      .find((d) => d.dayOfWeek === dayOfWeek)
+      ?.meals.find((m) => m.mealType === mealType);
+    if (!meal) return null;
 
-      const inferred = inferCategoryAndDepartment(trimmedName);
-      const category = customData.category || inferred.category || "ALTRO";
-      const department = customData.department || inferred.department || "Banco Frigo";
-      const amount =
-        typeof customData.amount === "number" && customData.amount > 0
-          ? customData.amount
-          : inferred.defaultAmount || 100;
-      const unit =
-        customData.unit && customData.unit.trim()
-          ? customData.unit.trim()
-          : inferred.defaultUnit || "g";
+    const inferred = inferCategoryAndDepartment(trimmedName);
+    const category = customData.category || inferred.category || "ALTRO";
+    const department = customData.department || inferred.department || "Banco Frigo";
+    const amount =
+      typeof customData.amount === "number" && customData.amount > 0
+        ? customData.amount
+        : inferred.defaultAmount || 100;
+    const unit = customData.unit?.trim() || inferred.defaultUnit || "g";
 
-      const optId = `custom-opt-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-      const ingId = `custom-ing-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const suffix = `${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const optId = `custom-opt-${suffix}`;
+    const ingId = `custom-ing-${suffix}`;
 
-      let createdOption: Option | null = null;
-
-      const updatedDays = plan.days.map((day) => {
-        if (day.dayOfWeek !== dayOfWeek) return day;
-
-        const updatedMeals = day.meals.map((meal) => {
-          if (meal.mealType !== mealType) return meal;
-
-          createdOption = {
-            id: optId,
-            mealId: meal.id,
-            name: trimmedName,
-            orderIndex: meal.options.length,
-            isCustom: true,
-            type: "CUSTOM_SUBSTITUTION",
-            isCheatMeal: false,
-            ingredients: [
-              {
-                id: `oi-${optId}`,
-                ingredientId: ingId,
-                ingredient: {
-                  id: ingId,
-                  name: trimmedName,
-                  category,
-                  department,
-                },
-                amount,
-                unit,
-                notes: customData.notes,
-              },
-            ],
-          };
-
-          return {
-            ...meal,
-            options: [...meal.options, createdOption!],
-          };
-        });
-
-        return { ...day, meals: updatedMeals };
-      });
-
-      if (!createdOption) return null;
-
-      setPlan({
-        ...plan,
-        days: updatedDays,
-      });
-
-      // Seleziona immediatamente l'opzione custom (FR-4) e imposta isFreeMeal a false
-      const key = `${dayOfWeek}_${mealType}`;
-      setSelections((prev) => ({
-        ...prev,
-        [key]: {
-          dayOfWeek,
-          mealType,
-          selectedOptionId: optId,
-          isFreeMeal: false,
-          extraVegGrams: prev[key]?.extraVegGrams ?? 0,
+    const createdOption: Option = {
+      id: optId,
+      mealId: meal.id,
+      name: trimmedName,
+      orderIndex: meal.options.length,
+      isCustom: true,
+      type: "CUSTOM_SUBSTITUTION",
+      isCheatMeal: false,
+      ingredients: [
+        {
+          id: `oi-${optId}`,
+          ingredientId: ingId,
+          ingredient: { id: ingId, name: trimmedName, category, department },
+          amount,
+          unit,
+          notes: customData.notes,
         },
-      }));
+      ],
+    };
 
-      return createdOption;
-    },
-    [plan]
-  );
+    const key = `${dayOfWeek}_${mealType}`;
+    update((prev) => {
+      if (!prev.plan) return prev;
+      return {
+        ...prev,
+        plan: {
+          ...prev.plan,
+          days: prev.plan.days.map((day) =>
+            day.dayOfWeek !== dayOfWeek
+              ? day
+              : {
+                  ...day,
+                  meals: day.meals.map((m) =>
+                    m.mealType !== mealType ? m : { ...m, options: [...m.options, createdOption] }
+                  ),
+                }
+          ),
+        },
+        // Seleziona subito l'opzione custom (FR-4) e disattiva il pasto libero
+        selections: {
+          ...prev.selections,
+          [key]: {
+            dayOfWeek,
+            mealType,
+            selectedOptionId: optId,
+            isFreeMeal: false,
+            extraVegGrams: prev.selections[key]?.extraVegGrams ?? 0,
+          },
+        },
+      };
+    });
 
-  const removeCustomOption = useCallback(
-    (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => {
-      if (!plan) return;
+    return createdOption;
+  };
 
+  const removeCustomOption = (dayOfWeek: DayOfWeek, mealType: MealType, optionId: string) => {
+    const key = `${dayOfWeek}_${mealType}`;
+    update((prev) => {
+      if (!prev.plan) return prev;
       let fallbackOptionId: string | null = null;
 
-      const updatedDays = plan.days.map((day) => {
+      const days = prev.plan.days.map((day) => {
         if (day.dayOfWeek !== dayOfWeek) return day;
-
-        const updatedMeals = day.meals.map((meal) => {
-          if (meal.mealType !== mealType) return meal;
-
-          const remainingOptions = meal.options.filter((opt) => opt.id !== optionId);
-          fallbackOptionId = remainingOptions[0]?.id || null;
-
-          return {
-            ...meal,
-            options: remainingOptions,
-          };
-        });
-
-        return { ...day, meals: updatedMeals };
-      });
-
-      setPlan({
-        ...plan,
-        days: updatedDays,
+        return {
+          ...day,
+          meals: day.meals.map((meal) => {
+            if (meal.mealType !== mealType) return meal;
+            const options = meal.options.filter((opt) => opt.id !== optionId);
+            fallbackOptionId = options[0]?.id || null;
+            return { ...meal, options };
+          }),
+        };
       });
 
       // Se l'opzione rimossa era selezionata, ripristina la prima opzione disponibile
-      const key = `${dayOfWeek}_${mealType}`;
-      setSelections((prev) => {
-        const current = prev[key];
-        if (current?.selectedOptionId === optionId) {
-          return {
-            ...prev,
-            [key]: {
-              ...current,
-              selectedOptionId: fallbackOptionId,
-              isFreeMeal: false,
-            },
-          };
-        }
-        return prev;
-      });
-    },
-    [plan]
-  );
+      const current = prev.selections[key];
+      const selections =
+        current?.selectedOptionId === optionId
+          ? { ...prev.selections, [key]: { ...current, selectedOptionId: fallbackOptionId, isFreeMeal: false } }
+          : prev.selections;
+
+      return { ...prev, plan: { ...prev.plan, days }, selections };
+    });
+  };
 
   return {
-    plan,
-    selections,
-    purchasedItems,
-    weeksCount,
-    addFixedVegetables,
-    fixedVegetableGrams,
-    selectedShoppingDays,
+    ...data,
     isOnline,
-    isInitialized,
+    isInitialized: true,
+    syncStatus: isOnline ? syncStatus : "offline",
     setOption,
     toggleFreeMeal,
     togglePurchased,

@@ -50,7 +50,7 @@ export default function GlobalError({
               Si è verificato un problema di caricamento
             </h1>
             <p style={{ fontSize: "0.875rem", color: "#a8a29e", lineHeight: "1.5", margin: "0 0 24px 0" }}>
-              La memoria del browser sul tuo dispositivo ha riscontrato un conflitto con una versione precedente. Tocca il pulsante qui sotto per ripristinare e caricare l'app aggiornata.
+              La memoria del browser sul tuo dispositivo ha riscontrato un conflitto con una versione precedente. Tocca il pulsante qui sotto per ripristinare e caricare l&apos;app aggiornata.
             </p>
 
             <button

@@ -1,72 +1,57 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
+import { setSessionCookie } from "@/lib/auth";
+import { RegisterSchema } from "@/lib/api-schemas";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { name, email, password } = body;
-
-    const trimmedName = typeof name === "string" ? name.trim() : "";
-    const trimmedEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
-    const trimmedPassword = typeof password === "string" ? password.trim() : "";
-
-    if (!trimmedName || !trimmedEmail || !trimmedPassword) {
+    const limit = checkRateLimit(`register:${getClientIp(req)}`, 5, 60 * 60 * 1000);
+    if (!limit.allowed) {
       return NextResponse.json(
-        { success: false, error: "Tutti i campi (nome, email, password) sono obbligatori." },
-        { status: 400 }
+        { success: false, error: "Troppe registrazioni da questa rete. Riprova più tardi." },
+        { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
       );
     }
 
-    if (trimmedPassword.length < 4) {
+    const parsed = RegisterSchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
       return NextResponse.json(
-        { success: false, error: "La password deve contenere almeno 4 caratteri." },
+        { success: false, error: parsed.error.issues[0]?.message || "Dati non validi." },
         { status: 400 }
       );
     }
+    const { name, email } = parsed.data;
+    const password = parsed.data.password.trim();
 
-    // Controlla se esiste già un utente con questa email o nome
     const existing = await prisma.user.findFirst({
       where: {
         OR: [
-          { email: { equals: trimmedEmail, mode: "insensitive" } },
-          { name: { equals: trimmedName, mode: "insensitive" } },
+          { email: { equals: email, mode: "insensitive" } },
+          { name: { equals: name, mode: "insensitive" } },
         ],
       },
+      select: { id: true },
     });
 
     if (existing) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Un account con questa email o questo nome utente esiste già.",
-        },
+        { success: false, error: "Un account con questa email o questo nome utente esiste già." },
         { status: 409 }
       );
     }
 
-    const passwordHash = await bcrypt.hash(trimmedPassword, 10);
-
     const newUser = await prisma.user.create({
-      data: {
-        name: trimmedName,
-        email: trimmedEmail,
-        passwordHash,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-      },
+      data: { name, email, passwordHash: await bcrypt.hash(password, 10) },
+      select: { id: true, name: true, email: true },
     });
+
+    await setSessionCookie(newUser.id);
 
     return NextResponse.json({
       success: true,
-      user: {
-        id: newUser.id,
-        name: newUser.name || trimmedName,
-        email: newUser.email,
-      },
+      user: { id: newUser.id, name: newUser.name || name, email: newUser.email },
     });
   } catch (error) {
     console.error("Errore registrazione utente:", error);

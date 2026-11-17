@@ -6,17 +6,27 @@ import { X, ShieldAlert, Trash2, CheckCircle2 } from "lucide-react";
 interface PrivacyModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onDeleteAllData: () => void;
+  /** Restituisce un messaggio di errore, oppure null se l'eliminazione è riuscita. */
+  onDeleteAllData: () => Promise<string | null>;
 }
 
 export function PrivacyModal({ isOpen, onClose, onDeleteAllData }: PrivacyModalProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deletedDone, setDeletedDone] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleDelete = () => {
-    onDeleteAllData();
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    setDeleteError(null);
+    const error = await onDeleteAllData();
+    setIsDeleting(false);
+    if (error) {
+      setDeleteError(error);
+      return;
+    }
     setDeletedDone(true);
     setTimeout(() => {
       setDeletedDone(false);
@@ -62,8 +72,8 @@ export function PrivacyModal({ isOpen, onClose, onDeleteAllData }: PrivacyModalP
               conservati sui server una volta elaborati.
             </li>
             <li>
-              <strong>Offline first:</strong> Le tue preferenze e liste della spesa sono memorizzate
-              sul tuo dispositivo.
+              <strong>Offline first e sincronizzazione:</strong> I tuoi dati sono memorizzati sul
+              dispositivo e sincronizzati sul tuo account, accessibile solo con la tua sessione.
             </li>
           </ul>
         </div>
@@ -89,15 +99,19 @@ export function PrivacyModal({ isOpen, onClose, onDeleteAllData }: PrivacyModalP
           ) : (
             <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 space-y-2.5">
               <p className="text-xs text-rose-800 dark:text-rose-300 font-medium">
-                Sei sicuro? Questa azione eliminerà permanentemente tutte le tue selezioni, preferenze
-                e spunte.
+                Sei sicuro? Questa azione eliminerà permanentemente l&apos;account e tutti i dati
+                salvati sul server e su questo dispositivo (piano, selezioni, preferenze e spunte).
               </p>
+              {deleteError && (
+                <p className="text-xs font-semibold text-rose-700 dark:text-rose-300">{deleteError}</p>
+              )}
               <div className="flex gap-2">
                 <button
                   onClick={handleDelete}
-                  className="flex-1 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-colors"
+                  disabled={isDeleting}
+                  className="flex-1 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-60 text-white text-xs font-bold transition-colors"
                 >
-                  Conferma eliminazione
+                  {isDeleting ? "Eliminazione..." : "Conferma eliminazione"}
                 </button>
                 <button
                   onClick={() => setConfirmDelete(false)}

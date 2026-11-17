@@ -1,10 +1,12 @@
 "use client";
 
 import React from "react";
-import { Moon, Sun, WifiOff, ShieldCheck, User, LogOut, Smartphone } from "lucide-react";
+import { Moon, Sun, WifiOff, CloudOff, ShieldCheck, User, LogOut, Smartphone } from "lucide-react";
+import type { SyncStatus } from "@/lib/client-store";
 
 interface HeaderProps {
   isOnline: boolean;
+  syncStatus?: SyncStatus;
   onOpenPrivacy: () => void;
   onOpenAccount: () => void;
   onOpenInstall?: () => void;
@@ -17,6 +19,7 @@ interface HeaderProps {
 
 export function Header({
   isOnline,
+  syncStatus = "idle",
   onOpenPrivacy,
   onOpenAccount,
   onOpenInstall,
@@ -52,10 +55,18 @@ export function Header({
         {/* Action Buttons */}
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Online badge su desktop */}
-          {isOnline ? (
+          {isOnline && syncStatus === "error" ? (
+            <div
+              title="Le modifiche sono salvate su questo dispositivo: verranno inviate al prossimo tentativo."
+              className="flex items-center gap-1.5 text-[10px] sm:text-xs text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-2 sm:px-2.5 py-1 rounded-full border border-rose-200 dark:border-rose-800"
+            >
+              <CloudOff size={12} />
+              <span className="hidden sm:inline">Sync non riuscita</span>
+            </div>
+          ) : isOnline ? (
             <div className="hidden lg:flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Sincronizzato
+              {syncStatus === "syncing" ? "Salvataggio..." : "Sincronizzato"}
             </div>
           ) : (
             <div className="hidden lg:flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/40 px-2.5 py-1 rounded-full border border-amber-200 dark:border-amber-800">

@@ -1,5 +1,6 @@
-import bcrypt from "bcryptjs";
+import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { prisma } from "@/lib/prisma";
 
 export interface SessionUser {
   id: string;
@@ -7,91 +8,105 @@ export interface SessionUser {
   name: string;
 }
 
-const SESSION_COOKIE_NAME = "diet_session";
+interface SessionPayload {
+  sub: string;
+  exp: number;
+}
 
-// Demo user predefinito per accesso immediato senza configurazione DB complessa
-export const DEMO_USER: SessionUser = {
-  id: "user-demo-01",
-  email: "demo@organizzatore-dieta.it",
-  name: "Utente Demo",
-};
+export const SESSION_COOKIE_NAME = "diet_session";
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 giorni
 
-/**
- * Genera l'hash sicuro della password
- */
-export async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, 10);
+const DEV_FALLBACK_SECRET = "dev-only-insecure-secret-change-me";
+
+function getSecret(): string {
+  const secret = process.env.AUTH_SECRET;
+  if (secret && secret.length >= 32) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("AUTH_SECRET mancante o troppo corto (minimo 32 caratteri).");
+  }
+  return DEV_FALLBACK_SECRET;
+}
+
+function sign(data: string, secret: string): string {
+  return createHmac("sha256", secret).update(data).digest("base64url");
 }
 
 /**
- * Verifica la password rispetto all'hash
+ * Crea un token di sessione firmato HMAC-SHA256: `<payload base64url>.<firma>`.
+ * Il payload contiene solo l'id utente e la scadenza.
  */
-export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash);
+export function createSessionToken(
+  userId: string,
+  secret: string = getSecret(),
+  now: number = Date.now()
+): string {
+  const payload: SessionPayload = { sub: userId, exp: now + SESSION_MAX_AGE_SECONDS * 1000 };
+  const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `${encoded}.${sign(encoded, secret)}`;
 }
 
 /**
- * Crea o codifica una sessione utente in un token base64 sicuro
+ * Verifica firma e scadenza del token. Restituisce l'id utente o null.
  */
-export function encodeSession(user: SessionUser): string {
-  const payload = {
-    ...user,
-    exp: Date.now() + 1000 * 60 * 60 * 24 * 30, // 30 giorni
-  };
-  return Buffer.from(JSON.stringify(payload)).toString("base64");
-}
+export function verifySessionToken(
+  token: string | undefined | null,
+  secret: string = getSecret(),
+  now: number = Date.now()
+): string | null {
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [encoded, signature] = parts;
 
-/**
- * Decodifica la sessione verificando la scadenza
- */
-export function decodeSession(token: string): SessionUser | null {
+  const expected = Buffer.from(sign(encoded, secret));
+  const received = Buffer.from(signature);
+  if (expected.length !== received.length || !timingSafeEqual(expected, received)) {
+    return null;
+  }
+
   try {
-    const raw = Buffer.from(token, "base64").toString("utf-8");
-    const parsed = JSON.parse(raw);
-    if (!parsed || !parsed.id || !parsed.exp) return null;
-    if (Date.now() > parsed.exp) return null;
-    return {
-      id: parsed.id,
-      email: parsed.email,
-      name: parsed.name,
-    };
+    const payload = JSON.parse(Buffer.from(encoded, "base64url").toString("utf-8")) as SessionPayload;
+    if (typeof payload.sub !== "string" || typeof payload.exp !== "number") return null;
+    if (now > payload.exp) return null;
+    return payload.sub;
   } catch {
     return null;
   }
 }
 
 /**
- * Recupera l'utente corrente dalla sessione dei cookie (Server Component o Server Action)
+ * Imposta il cookie di sessione (solo in Route Handler o Server Function).
  */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+export async function setSessionCookie(userId: string) {
   const cookieStore = await cookies();
-  const sessionToken = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!sessionToken) {
-    return DEMO_USER; // Di default fornisce la sessione demo per usabilità immediata
-  }
-  const user = decodeSession(sessionToken);
-  return user || DEMO_USER;
-}
-
-/**
- * Imposta il cookie di sessione
- */
-export async function setSessionCookie(user: SessionUser) {
-  const cookieStore = await cookies();
-  const token = encodeSession(user);
-  cookieStore.set(SESSION_COOKIE_NAME, token, {
+  cookieStore.set(SESSION_COOKIE_NAME, createSessionToken(userId), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30, // 30 giorni
+    maxAge: SESSION_MAX_AGE_SECONDS,
   });
 }
 
-/**
- * Rimuove il cookie di sessione (logout)
- */
 export async function clearSessionCookie() {
   const cookieStore = await cookies();
   cookieStore.delete(SESSION_COOKIE_NAME);
+}
+
+/**
+ * Legge il cookie, verifica la firma e controlla che l'utente esista ancora.
+ * Da chiamare in ogni Route Handler che accede a dati personali.
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const cookieStore = await cookies();
+  const userId = verifySessionToken(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  if (!userId) return null;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, email: true, name: true },
+  });
+  if (!user) return null;
+
+  return { id: user.id, email: user.email, name: user.name || user.email.split("@")[0] };
 }

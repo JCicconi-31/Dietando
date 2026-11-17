@@ -257,10 +257,10 @@ export function AuthScreen({
                   <input
                     type="password"
                     required
-                    minLength={4}
+                    minLength={8}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Almeno 4 caratteri"
+                    placeholder="Almeno 8 caratteri"
                     className="w-full pl-9 pr-3 py-2.5 text-xs sm:text-sm rounded-xl border border-stone-200 dark:border-stone-800 bg-stone-50 dark:bg-[#202026] text-stone-900 dark:text-stone-100 focus:outline-none focus:ring-2 focus:ring-[#F7931E]"
                   />
                 </div>

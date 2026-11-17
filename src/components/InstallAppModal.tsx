@@ -10,7 +10,6 @@ import {
   PlusSquare,
   WifiOff,
   Sparkles,
-  ArrowRight,
   ShieldCheck,
   Copy,
   Check,
@@ -92,7 +91,7 @@ export function InstallAppModal({
             <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-2">
               <CheckCircle2 size={36} className="text-emerald-600 dark:text-emerald-400 mx-auto" />
               <h3 className="font-bold text-stone-900 dark:text-stone-100">
-                L'applicazione è già installata!
+                L&apos;applicazione è già installata!
               </h3>
               <p className="text-xs text-stone-600 dark:text-stone-400">
                 Stai già eseguendo Organizzatore Dieta in modalità autonoma a schermo intero. Puoi trovarla tra le tue applicazioni su Android.
@@ -108,7 +107,7 @@ export function InstallAppModal({
                     <span>Installazione con 1 tocco disponibile</span>
                   </div>
                   <p className="text-xs text-stone-600 dark:text-stone-400 leading-relaxed">
-                    Il tuo browser supporta l'installazione diretta. Tocca il pulsante qui sotto per aggiungere subito l'app alla schermata principale di Android.
+                    Il tuo browser supporta l&apos;installazione diretta. Tocca il pulsante qui sotto per aggiungere subito l&apos;app alla schermata principale di Android.
                   </p>
                   <button
                     onClick={handleInstallClick}
@@ -138,7 +137,7 @@ export function InstallAppModal({
                         <MoreVertical size={14} className="text-stone-500 inline" />
                       </p>
                       <p className="text-stone-500 dark:text-stone-400">
-                        Tocca l'icona con i <strong>tre puntini verticali (⋮)</strong> nell'angolo in alto a destra del browser.
+                        Tocca l&apos;icona con i <strong>tre puntini verticali (⋮)</strong> nell&apos;angolo in alto a destra del browser.
                       </p>
                     </div>
                   </div>
@@ -149,11 +148,11 @@ export function InstallAppModal({
                     </div>
                     <div className="text-xs space-y-0.5">
                       <p className="font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
-                        Tocca "Aggiungi a schermata Home" o "Installa app"
+                        Tocca &quot;Aggiungi a schermata Home&quot; o &quot;Installa app&quot;
                         <PlusSquare size={14} className="text-stone-500 inline" />
                       </p>
                       <p className="text-stone-500 dark:text-stone-400">
-                        Scorri l'elenco delle opzioni e seleziona <strong>"Installa app"</strong> oppure <strong>"Aggiungi a schermata Home"</strong>.
+                        Scorri l&apos;elenco delle opzioni e seleziona <strong>&quot;Installa app&quot;</strong> oppure <strong>&quot;Aggiungi a schermata Home&quot;</strong>.
                       </p>
                     </div>
                   </div>
@@ -164,11 +163,11 @@ export function InstallAppModal({
                     </div>
                     <div className="text-xs space-y-0.5">
                       <p className="font-semibold text-stone-900 dark:text-stone-100 flex items-center gap-1.5">
-                        Conferma l'installazione
+                        Conferma l&apos;installazione
                         <CheckCircle2 size={14} className="text-emerald-500 inline" />
                       </p>
                       <p className="text-stone-500 dark:text-stone-400">
-                        Premi <strong>"Installa"</strong>. L'icona arancione dell'Organizzatore Dieta apparirà subito tra le applicazioni del tuo smartphone!
+                        Premi <strong>&quot;Installa&quot;</strong>. L&apos;icona arancione dell&apos;Organizzatore Dieta apparirà subito tra le applicazioni del tuo smartphone!
                       </p>
                     </div>
                   </div>

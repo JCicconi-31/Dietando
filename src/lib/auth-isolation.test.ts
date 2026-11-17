@@ -1,11 +1,18 @@
-import { describe, it, expect, beforeEach } from "vitest";
-import { registerUser, loginUser, getCurrentAuthUser, logoutUser, deleteUserAccount } from "./client-auth";
+import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
+import {
+  registerUser,
+  loginUser,
+  getCurrentAuthUser,
+  logoutUser,
+  deleteUserAccount,
+  refreshSession,
+  purgeLegacyAuthData,
+} from "./client-auth";
 
-// Polyfill per localStorage e crypto in ambiente test se necessario
 class LocalStorageMock {
   private store: Record<string, string> = {};
   getItem(key: string) {
-    return this.store[key] || null;
+    return this.store[key] ?? null;
   }
   setItem(key: string, value: string) {
     this.store[key] = String(value);
@@ -16,65 +23,116 @@ class LocalStorageMock {
   clear() {
     this.store = {};
   }
+  dump() {
+    return JSON.stringify(this.store);
+  }
 }
 
-// @ts-ignore
-global.localStorage = new LocalStorageMock();
+const storage = new LocalStorageMock();
+(globalThis as unknown as { localStorage: LocalStorageMock }).localStorage = storage;
+
+const USER = { id: "u1", name: "Jacopo", email: "jacopo@test.it" };
+
+function jsonResponse(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
+}
 
 describe("Client Authentication & Data Isolation", () => {
+  const fetchMock = vi.fn<typeof fetch>();
+
   beforeEach(() => {
-    localStorage.clear();
+    storage.clear();
+    fetchMock.mockReset();
+    vi.stubGlobal("fetch", fetchMock);
   });
 
-  it("requires authentication and rejects unauthenticated access", () => {
-    const current = getCurrentAuthUser();
-    expect(current).toBeNull();
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
-  it("registers a new user and creates an authenticated session", async () => {
+  it("requires authentication when nothing is cached", () => {
+    expect(getCurrentAuthUser()).toBeNull();
+  });
+
+  it("registers via the server and caches only the public profile", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true, user: USER }));
     const reg = await registerUser("Jacopo", "jacopo@test.it", "password123");
+
     expect(reg.success).toBe(true);
-    expect(reg.user).toBeDefined();
-    expect(reg.user?.name).toBe("Jacopo");
-    expect(reg.user?.email).toBe("jacopo@test.it");
-
-    const current = getCurrentAuthUser();
-    expect(current?.id).toBe(reg.user?.id);
+    expect(reg.user).toEqual(USER);
+    expect(getCurrentAuthUser()).toEqual(USER);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/auth/register");
+    // Nessuna password né hash salvati sul dispositivo
+    expect(storage.dump()).not.toContain("password123");
+    expect(storage.dump()).not.toContain("passwordHash");
   });
 
-  it("authenticates an existing user and rejects wrong credentials", async () => {
-    await registerUser("Jacopo", "jacopo@test.it", "password123");
-    logoutUser();
-    expect(getCurrentAuthUser()).toBeNull();
+  it("rejects wrong credentials without caching a user", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, { success: false, error: "Credenziali non valide." }));
+    const res = await loginUser("jacopo@test.it", "wrong");
 
-    const badLogin = await loginUser("jacopo@test.it", "wrongpassword");
-    expect(badLogin.success).toBe(false);
-    expect(getCurrentAuthUser()).toBeNull();
-
-    const goodLogin = await loginUser("jacopo@test.it", "password123");
-    expect(goodLogin.success).toBe(true);
-    expect(getCurrentAuthUser()?.name).toBe("Jacopo");
-  });
-
-  it("logs out and clears current user session", async () => {
-    await registerUser("Jacopo", "jacopo@test.it", "password123");
-    expect(getCurrentAuthUser()).not.toBeNull();
-
-    logoutUser();
+    expect(res.success).toBe(false);
+    expect(res.error).toBe("Credenziali non valide.");
     expect(getCurrentAuthUser()).toBeNull();
   });
 
-  it("deletes user account and associated private data", async () => {
-    const reg = await registerUser("Jacopo", "jacopo@test.it", "password123");
-    const userId = reg.user!.id;
+  it("fails login gracefully when offline", async () => {
+    fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    const res = await loginUser("jacopo@test.it", "password123");
+    expect(res.success).toBe(false);
+    expect(res.error).toMatch(/connessione/);
+  });
 
-    // Simula dati isolati salvati per l'utente
-    localStorage.setItem(`diet_plan_${userId}`, JSON.stringify({ title: "La mia dieta privata" }));
-    localStorage.setItem(`diet_selections_${userId}`, JSON.stringify({}));
+  it("logs out, clears cached profile and calls the server", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true, user: USER }));
+    await loginUser("jacopo@test.it", "password123");
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
 
-    deleteUserAccount(userId);
-
+    await logoutUser();
     expect(getCurrentAuthUser()).toBeNull();
-    expect(localStorage.getItem(`diet_plan_${userId}`)).toBeNull();
+    expect(fetchMock.mock.calls[1][0]).toBe("/api/auth/logout");
+  });
+
+  it("refreshSession clears cache on 401 but keeps it when offline", async () => {
+    storage.setItem("diet_current_user", JSON.stringify(USER));
+
+    fetchMock.mockRejectedValueOnce(new TypeError("offline"));
+    expect(await refreshSession()).toEqual(USER);
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(401, { success: false }));
+    expect(await refreshSession()).toBeNull();
+    expect(getCurrentAuthUser()).toBeNull();
+  });
+
+  it("deletes the account on the server, then wipes local data", async () => {
+    storage.setItem("diet_current_user", JSON.stringify(USER));
+    storage.setItem(`diet_plan_${USER.id}`, JSON.stringify({ title: "La mia dieta privata" }));
+    storage.setItem(`diet_selections_${USER.id}`, JSON.stringify({}));
+
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, { success: true }));
+    const res = await deleteUserAccount(USER.id);
+
+    expect(res.success).toBe(true);
+    expect(fetchMock.mock.calls[0][0]).toBe("/api/auth/account");
+    expect(fetchMock.mock.calls[0][1]?.method).toBe("DELETE");
+    expect(getCurrentAuthUser()).toBeNull();
+    expect(storage.getItem(`diet_plan_${USER.id}`)).toBeNull();
+  });
+
+  it("keeps local data if server deletion fails", async () => {
+    storage.setItem(`diet_plan_${USER.id}`, "{}");
+    fetchMock.mockResolvedValueOnce(jsonResponse(500, { success: false, error: "boom" }));
+
+    const res = await deleteUserAccount(USER.id);
+    expect(res.success).toBe(false);
+    expect(storage.getItem(`diet_plan_${USER.id}`)).toBe("{}");
+  });
+
+  it("purges legacy keys that stored password hashes", () => {
+    storage.setItem("diet_registered_users", JSON.stringify([{ passwordHash: "abc" }]));
+    storage.setItem("diet_current_user_id", "u1");
+    purgeLegacyAuthData();
+    expect(storage.getItem("diet_registered_users")).toBeNull();
+    expect(storage.getItem("diet_current_user_id")).toBeNull();
   });
 });

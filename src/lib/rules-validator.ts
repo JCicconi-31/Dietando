@@ -1,4 +1,4 @@
-import { Plan, MealSelection, Rule } from "@/types/diet";
+import { Plan, MealSelection } from "@/types/diet";
 
 export interface RuleValidationResult {
   ruleId: string;
@@ -32,13 +32,11 @@ export function validateDietRules(
   // Mappa delle frequenze per categoria: categoria -> conteggio pasti distinti
   const categoryMealCounts = new Map<string, number>();
   let freeMealsCount = 0;
-  let totalMealsEvaluated = 0;
 
   for (const day of plan.days) {
     for (const meal of day.meals) {
       const selectionKey = `${day.dayOfWeek}_${meal.mealType}`;
       const selection = selections[selectionKey];
-      totalMealsEvaluated++;
 
       if (selection?.isFreeMeal) {
         freeMealsCount++;

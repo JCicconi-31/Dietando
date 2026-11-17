@@ -50,5 +50,8 @@ Per garantire affidabilità e manutenibilità a lungo termine, le due logiche cr
 ## 4. Isolamento Dati e Rispetto della Privacy
 
 - **Dati Sanitari:** Non vengono raccolti né inviati dati a server di terze parti (no Google Analytics, no SDK pubblicitari).
-- **Multi-Utenza:** Ciascuna tabella nel database Prisma possiede una colonna `userId`. Nessuna query espone record appartenenti ad altri utenti.
-- **Diritto all'Oblio (GDPR):** È presente un pulsante esplicito *"Elimina il mio account e tutti i miei dati"* che resetta in modo definitivo tutti i dati memorizzati.
+- **Sessione firmata:** Login e registrazione impostano un cookie `httpOnly` firmato HMAC-SHA256 con `AUTH_SECRET` (`src/lib/auth.ts`). Ogni Route Handler con dati personali ricava l'utente **solo** dalla sessione (`getSessionUser()`), mai da un `userId` inviato dal client.
+- **Nessuna credenziale sul dispositivo:** In `localStorage` si conserva solo il profilo (id, nome, email) per aprire l'app offline; password e hash restano esclusivamente sul server (bcrypt). Il login richiede connessione.
+- **Sincronizzazione:** I dati della dieta sono salvati in locale e sincronizzati su `UserDietData`. All'avvio il client riconcilia con il server prima di inviare modifiche; le modifiche fatte offline vengono marcate come pendenti e vince la più recente (`resolveInitialSync` in `src/lib/client-store.ts`).
+- **Validazione:** I payload delle API sono validati con Zod (`src/lib/api-schemas.ts`) e limitati a 1 MB; login e registrazione hanno un rate limit in memoria.
+- **Diritto all'Oblio (GDPR):** Il pulsante *"Elimina il mio account e tutti i miei dati"* chiama `DELETE /api/auth/account`, che elimina l'utente e tutti i dati collegati dal database (cascade), e poi ripulisce il dispositivo.

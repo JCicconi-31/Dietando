@@ -1,31 +1,32 @@
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { getSessionUser } from "@/lib/auth";
+import { DietDataSchema, MAX_DIET_PAYLOAD_BYTES } from "@/lib/api-schemas";
 
-export async function GET(req: Request) {
+const unauthorized = () =>
+  NextResponse.json({ success: false, error: "Non autenticato." }, { status: 401 });
+
+function safeParse(str: string | null) {
+  if (!str) return null;
   try {
-    const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("userId");
+    return JSON.parse(str);
+  } catch {
+    return null;
+  }
+}
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "userId obbligatorio." }, { status: 400 });
-    }
+export async function GET() {
+  // Fuori dal try: con Cache Components il prerendering si interrompe qui.
+  await cookies();
+  try {
+    const user = await getSessionUser();
+    if (!user) return unauthorized();
 
-    const dietData = await prisma.userDietData.findUnique({
-      where: { userId },
-    });
-
+    const dietData = await prisma.userDietData.findUnique({ where: { userId: user.id } });
     if (!dietData) {
       return NextResponse.json({ success: true, data: null });
     }
-
-    const safeParse = (str: string | null) => {
-      if (!str) return null;
-      try {
-        return JSON.parse(str);
-      } catch {
-        return null;
-      }
-    };
 
     return NextResponse.json({
       success: true,
@@ -45,33 +46,45 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const { userId, plan, selections, purchased, settings } = body;
+    const user = await getSessionUser();
+    if (!user) return unauthorized();
 
-    if (!userId) {
-      return NextResponse.json({ success: false, error: "userId obbligatorio." }, { status: 400 });
+    const raw = await req.text();
+    if (raw.length > MAX_DIET_PAYLOAD_BYTES) {
+      return NextResponse.json({ success: false, error: "Dati troppo grandi." }, { status: 413 });
     }
 
-    // Assicurati che l'utente esista in User
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return NextResponse.json({ success: false, error: "Utente non trovato." }, { status: 404 });
+    let json: unknown;
+    try {
+      json = JSON.parse(raw);
+    } catch {
+      return NextResponse.json({ success: false, error: "JSON non valido." }, { status: 400 });
     }
 
+    const parsed = DietDataSchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: "Formato dati non valido.", issues: parsed.error.issues.slice(0, 5) },
+        { status: 400 }
+      );
+    }
+    const { plan, selections, purchased, settings } = parsed.data;
+
+    const toText = (v: unknown) => (v ? JSON.stringify(v) : null);
     const updateData: Record<string, string | null> = {};
-    if (plan !== undefined) updateData.planData = plan ? JSON.stringify(plan) : null;
-    if (selections !== undefined) updateData.selections = selections ? JSON.stringify(selections) : null;
-    if (purchased !== undefined) updateData.purchased = purchased ? JSON.stringify(purchased) : null;
-    if (settings !== undefined) updateData.settings = settings ? JSON.stringify(settings) : null;
+    if (plan !== undefined) updateData.planData = toText(plan);
+    if (selections !== undefined) updateData.selections = toText(selections);
+    if (purchased !== undefined) updateData.purchased = toText(purchased);
+    if (settings !== undefined) updateData.settings = toText(settings);
 
     const saved = await prisma.userDietData.upsert({
-      where: { userId },
+      where: { userId: user.id },
       create: {
-        userId,
-        planData: plan ? JSON.stringify(plan) : null,
-        selections: selections ? JSON.stringify(selections) : null,
-        purchased: purchased ? JSON.stringify(purchased) : null,
-        settings: settings ? JSON.stringify(settings) : null,
+        userId: user.id,
+        planData: toText(plan),
+        selections: toText(selections),
+        purchased: toText(purchased),
+        settings: toText(settings),
       },
       update: updateData,
     });

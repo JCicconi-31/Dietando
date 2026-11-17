@@ -73,7 +73,7 @@ export function ImportJsonModal({
     setValidationErrors([]);
     setValidatedPlan(null);
 
-    let parsed: any;
+    let parsed: unknown;
     try {
       // Pulisci eventuali backtick markdown (\`\`\`json ...) se l'utente ha copiato l'intero blocco
       let cleaned = rawContent.trim();
@@ -83,8 +83,9 @@ export function ImportJsonModal({
         cleaned = cleaned.replace(/^```/, "").replace(/```$/, "").trim();
       }
       parsed = JSON.parse(cleaned);
-    } catch (err: any) {
-      setValidationErrors([`Errore sintattico JSON: ${err.message}`]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setValidationErrors([`Errore sintattico JSON: ${message}`]);
       return;
     }
 

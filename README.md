@@ -103,8 +103,13 @@ Esempio:
 ```env
 DATABASE_URL="postgresql://neondb_owner:PASSWORD@ep-tiny-mouse-b5l0ipc1-pooler.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
 DIRECT_URL="postgresql://neondb_owner:PASSWORD@ep-tiny-mouse-b5l0ipc1.c-7.us-east-2.aws.neon.tech/neondb?sslmode=require"
-AUTH_SECRET="la-tua-chiave-segreta"
-NEXTAUTH_URL="http://localhost:3000"
+AUTH_SECRET="una-stringa-casuale-di-almeno-32-caratteri"
+```
+
+`AUTH_SECRET` firma i cookie di sessione ed è **obbligatorio in produzione** (minimo 32 caratteri, altrimenti login e API restituiscono errore). Generane uno con:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"
 ```
 
 ### 2. Comandi Principali

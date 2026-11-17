@@ -9,7 +9,8 @@ interface AccountModalProps {
   onClose: () => void;
   currentUser: AuthUser | null;
   onLogout: () => void;
-  onDeleteAccount: () => void;
+  /** Restituisce un messaggio di errore, oppure null se l'eliminazione è riuscita. */
+  onDeleteAccount: () => Promise<string | null>;
   onResetPlan?: () => void;
   hasActivePlan?: boolean;
   onOpenInstall?: () => void;
@@ -127,8 +128,10 @@ export function AccountModal({
                   "Sei sicuro di voler eliminare definitivamente il tuo account e tutti i dati salvati (piano, pasti, spesa)?"
                 )
               ) {
-                onDeleteAccount();
-                onClose();
+                void onDeleteAccount().then((error) => {
+                  if (error) window.alert(error);
+                  else onClose();
+                });
               }
             }}
             className="w-full py-2.5 px-3.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors cursor-pointer"
